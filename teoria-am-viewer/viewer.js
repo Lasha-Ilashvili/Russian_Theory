@@ -2,13 +2,13 @@
   const data = window.TEORIA_AM_DATA || { tickets: [], topics: [] };
   const translations = window.TEORIA_RU_TRANSLATIONS || {};
   const topicsEl = document.querySelector("#topics");
-  const pagesEl = document.querySelector("#pages");
+  const paginationTopEl = document.querySelector("#pagination-top");
+  const paginationBottomEl = document.querySelector("#pagination-bottom");
   const ticketsEl = document.querySelector("#tickets");
-  const summaryEl = document.querySelector("#summary");
-  const searchEl = document.querySelector("#search");
+  const titleEl = document.querySelector("#page-title");
   const initialState = new URLSearchParams(location.hash.slice(1));
   let activeTopic = initialState.get("topic") || "all";
-  let activePage = initialState.get("page") || "all";
+  let activePage = initialState.get("page") || "1";
 
   const byId = new Map(data.tickets.map((ticket) => [ticket.id, ticket]));
 
@@ -76,7 +76,7 @@
     if (descButton) {
       descButton.setAttribute("title", "Пояснение");
       descButton.addEventListener("click", () => {
-        ticketEl.classList.toggle("desc-open");
+        ticketEl.classList.toggle("desc-opened");
       });
     }
   }
@@ -101,7 +101,7 @@
     if (activeTopic !== "all") {
       params.set("topic", activeTopic);
     }
-    if (activeTopic === "all" && activePage !== "all") {
+    if (activeTopic === "all" && activePage !== "1") {
       params.set("page", activePage);
     }
 
@@ -109,70 +109,138 @@
     history.replaceState(null, "", hash ? `${location.pathname}#${hash}` : location.pathname);
   }
 
-  function matchesSearch(ticket, query) {
-    if (!query) {
-      return true;
-    }
-
-    const translation = translations[ticket.id];
-    const translatedQuestion = translation?.question || "";
-    const translatedAnswers = Object.values(translation?.answers || {}).join(" ");
-    return [ticket.id, ticket.question, translatedQuestion, translatedAnswers].join(" ").toLowerCase().includes(query);
-  }
-
   function renderTopics() {
-    topicsEl.innerHTML = data.topics.map((topic) => {
-      const count = topic.tickets.length;
-      return `<button class="topic-button" type="button" data-topic="${topic.id}"><span>${topic.id}. ${topic.title}</span><span class="topic-count">${count}</span></button>`;
-    }).join("");
-
-    document.querySelectorAll(".topic-button").forEach((button) => {
-      button.addEventListener("click", () => {
-        activeTopic = button.dataset.topic;
-        activePage = "all";
-        writeHash();
-        render();
-      });
-    });
-  }
-
-  function renderPages() {
-    if (activeTopic !== "all") {
-      pagesEl.innerHTML = "";
-      return;
-    }
-
-    pagesEl.innerHTML = [
-      `<button class="page-button page-button-all" type="button" data-page="all">Все</button>`,
-      ...allPages().map((page) => `<button class="page-button" type="button" data-page="${page}">${page}</button>`)
+    topicsEl.innerHTML = [
+      `<li><a href="#" data-topic="all"><span class="id"></span>Все</a></li>`,
+      ...data.topics.map((topic) => `<li><a href="#" data-topic="${topic.id}"><span class="id">${topic.id}.</span>${topic.title}</a></li>`)
     ].join("");
 
-    pagesEl.querySelectorAll(".page-button").forEach((button) => {
-      button.classList.toggle("active", button.dataset.page === activePage);
-      button.addEventListener("click", () => {
-        activePage = button.dataset.page;
+    topicsEl.querySelectorAll("a[data-topic]").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        activeTopic = link.dataset.topic;
+        activePage = "1";
         writeHash();
         render();
+        window.scrollTo({ top: 0, behavior: "smooth" });
       });
     });
+  }
+
+  function paginationHtml() {
+    if (activeTopic !== "all") {
+      return "";
+    }
+
+    const pages = allPages();
+    const index = pages.indexOf(activePage);
+    const previous = pages[index - 1];
+    const next = pages[index + 1];
+    const options = pages.map((page) => {
+      const selected = page === activePage ? ' selected="selected"' : "";
+      const label = page === activePage ? `- страница ${page} -` : `страница ${page}`;
+      const cls = page === activePage ? ' class="noaction"' : "";
+      return `<option${cls}${selected} value="${page}">${label}</option>`;
+    }).join("");
+
+    return `<div class="pull-left paginator">
+      <button class="btn btn-default page-prev" type="button"${previous ? "" : " disabled"}>‹ Предыдущая</button>
+      <select title="" class="form-control paginator-select">${options}</select>
+      <button class="btn btn-default page-next" type="button"${next ? "" : " disabled"}>Следующая ›</button>
+    </div>
+    <form class="pull-right goto-ticket">
+      <div class="input-group" title="Введите номер билета">
+        <span class="input-group-addon">#</span>
+        <input type="number" pattern="\\d*" name="ticket" class="form-control number-input" placeholder="номер билета">
+        <span class="input-group-btn">
+          <button class="btn btn-default" type="submit">Перейти</button>
+        </span>
+      </div>
+    </form>`;
+  }
+
+  function bindPagination(container) {
+    const pages = allPages();
+    const index = pages.indexOf(activePage);
+    const previous = pages[index - 1];
+    const next = pages[index + 1];
+
+    container.querySelector(".paginator-select")?.addEventListener("change", (event) => {
+      activePage = event.target.value;
+      writeHash();
+      render();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    container.querySelector(".page-prev")?.addEventListener("click", () => {
+      if (previous) {
+        activePage = previous;
+        writeHash();
+        render();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+
+    container.querySelector(".page-next")?.addEventListener("click", () => {
+      if (next) {
+        activePage = next;
+        writeHash();
+        render();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+
+    container.querySelector(".goto-ticket")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const id = new FormData(event.currentTarget).get("ticket");
+      const ticket = byId.get(String(id || "").trim());
+      if (!ticket) {
+        return;
+      }
+
+      activeTopic = "all";
+      activePage = ticket.allPage || "1";
+      writeHash();
+      render();
+      document.getElementById(`ticket-${ticket.id}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }
+
+  function renderPagination() {
+    const html = paginationHtml();
+    paginationTopEl.innerHTML = html;
+    paginationBottomEl.innerHTML = html;
+    bindPagination(paginationTopEl);
+    bindPagination(paginationBottomEl);
+  }
+
+  function renderTitle(count) {
+    titleEl.textContent = activeTopic === "all"
+      ? "AM категория "
+      : `AM категория: ${data.topics.find((topic) => topic.id === activeTopic)?.title || ""} `;
+
+    const light = document.createElement("span");
+    light.className = "light";
+    light.textContent = activeTopic === "all"
+      ? `Всего ${data.tickets.length} билетов, страница ${activePage}`
+      : `Всего ${count} билетов`;
+    titleEl.append(light);
   }
 
   function render() {
-    const query = searchEl.value.trim().toLowerCase();
     let filtered = topicTickets(activeTopic);
-    if (activeTopic === "all" && activePage !== "all") {
+    if (activeTopic === "all") {
       filtered = filtered.filter((ticket) => ticket.allPage === activePage);
     }
-    filtered = filtered.filter((ticket) => matchesSearch(ticket, query));
 
-    document.querySelectorAll(".topic-button").forEach((button) => {
-      button.classList.toggle("active", button.dataset.topic === activeTopic);
+    topicsEl.querySelectorAll("a[data-topic]").forEach((link) => {
+      link.classList.toggle("active", link.dataset.topic === activeTopic);
     });
 
-    renderPages();
-    summaryEl.textContent = `Показано ${filtered.length} из ${data.tickets.length}`;
+    renderTitle(filtered.length);
+    renderPagination();
     ticketsEl.innerHTML = filtered.length
-      ? filtered.map((ticket) => `<div class="ticket-shell" id="ticket-${ticket.id}">${ticket.html}</div>`).join("")
+      ? filtered.map((ticket) => `<div class="item" id="ticket-${ticket.id}">${ticket.html}</div>`).join("")
       : '<div class="empty">Ничего не найдено</div>';
 
     ticketsEl.querySelectorAll(".ticket-container").forEach((ticketEl) => {
@@ -181,7 +249,6 @@
     });
   }
 
-  searchEl.addEventListener("input", render);
   renderTopics();
   render();
 })();

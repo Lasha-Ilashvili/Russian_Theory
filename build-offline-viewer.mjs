@@ -233,7 +233,7 @@ function queueImage(rawUrl, baseUrl) {
 }
 
 function rewriteTicketHtml(article, baseUrl) {
-  let html = article.replace(/\slocale-[a-z]{2}\b/g, "");
+  let html = article;
 
   html = html.replace(/\b(src)=["']([^"']+)["']/gi, (full, attr, rawUrl) => {
     const localPath = queueImage(rawUrl, baseUrl);
@@ -360,6 +360,39 @@ async function writeDataFile() {
   await fs.writeFile(path.join(OUT_DIR, "tickets-data.js"), `window.TEORIA_AM_DATA = ${JSON.stringify(data)};\n`);
 }
 
+async function writeVendorCss() {
+  const entries = await fs.readdir(ROOT, { withFileTypes: true });
+  const filesFolder = entries.find((entry) => entry.isDirectory() && entry.name.endsWith("_files"))?.name;
+  if (!filesFolder) {
+    return;
+  }
+
+  const sourceDir = path.join(ROOT, filesFolder);
+  const vendorDir = path.join(OUT_DIR, "vendor");
+  ensureInsideWorkspace(vendorDir);
+  await fs.mkdir(vendorDir, { recursive: true });
+
+  for (const fileName of [
+    "bootstrap.min.css",
+    "bootstrap-theme.min.css",
+    "tooltipster.css",
+    "jquery.magnific-popup.css",
+    "global.css",
+    "global.components.css",
+    "user.css",
+    "test_exam.css",
+    "static.css",
+    "static-extra.css",
+    "onbar-2.css"
+  ]) {
+    try {
+      await fs.copyFile(path.join(sourceDir, fileName), path.join(vendorDir, fileName));
+    } catch {
+      // The viewer has local fallback styles if an optional source stylesheet is missing.
+    }
+  }
+}
+
 async function writeViewerFiles() {
   await fs.writeFile(path.join(OUT_DIR, "index.html"), `<!doctype html>
 <html lang="ru">
@@ -367,31 +400,40 @@ async function writeViewerFiles() {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AM tickets offline</title>
+  <link rel="stylesheet" href="./vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="./vendor/bootstrap-theme.min.css">
+  <link rel="stylesheet" href="./vendor/tooltipster.css">
+  <link rel="stylesheet" href="./vendor/jquery.magnific-popup.css">
+  <link rel="stylesheet" href="./vendor/global.css">
+  <link rel="stylesheet" href="./vendor/global.components.css">
+  <link rel="stylesheet" href="./vendor/user.css">
+  <link rel="stylesheet" href="./vendor/test_exam.css">
+  <link rel="stylesheet" href="./vendor/static.css">
+  <link rel="stylesheet" href="./vendor/static-extra.css">
+  <link rel="stylesheet" href="./vendor/onbar-2.css">
   <link rel="stylesheet" href="./styles.css">
 </head>
-<body>
-  <header class="app-header">
-    <div>
-      <h1>AM билеты</h1>
-      <p id="summary">Загрузка...</p>
+<body class="user-anon ticket-size-small">
+  <section class="content-wrapper" style="overflow: hidden;">
+    <div class="container" style="position: relative;">
+      <div class="page-tickets-list">
+        <nav class="tickets-topics">
+          <h2 class="tickets-cats-title">Выберите тему:</h2>
+          <ul id="topics" class="tickets-topics-list"></ul>
+        </nav>
+
+        <div class="tickets-list with-topics">
+          <div class="text-content">
+            <h1 id="page-title">AM категория <span class="light">Загрузка...</span></h1>
+          </div>
+
+          <nav id="pagination-top" class="on-pagination clearfix"></nav>
+          <div id="tickets"></div>
+          <nav id="pagination-bottom" class="on-pagination clearfix"></nav>
+        </div>
+      </div>
     </div>
-    <label class="search">
-      <span>Поиск</span>
-      <input id="search" type="search" placeholder="Номер или текст">
-    </label>
-  </header>
-
-  <main class="layout">
-    <aside class="topics-panel">
-      <button class="topic-button active" type="button" data-topic="all">Все</button>
-      <div id="topics"></div>
-    </aside>
-
-    <section class="tickets-panel">
-      <nav id="pages" class="pages-panel" aria-label="Pages"></nav>
-      <div id="tickets" class="tickets-grid"></div>
-    </section>
-  </main>
+  </section>
 
   <script src="./${TRANSLATION_FILE}"></script>
   <script src="./tickets-data.js"></script>
@@ -400,332 +442,184 @@ async function writeViewerFiles() {
 </html>
 `);
 
-  await fs.writeFile(path.join(OUT_DIR, "styles.css"), `:root {
-  color-scheme: light;
-  --bg: #f4f6f8;
-  --panel: #ffffff;
-  --ink: #202631;
-  --muted: #667085;
-  --line: #d9dee7;
-  --accent: #116b5f;
-  --accent-soft: #e4f3ef;
-  --correct: #18834f;
-  --correct-soft: #e8f6ef;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
+  await fs.writeFile(path.join(OUT_DIR, "styles.css"), `body {
   margin: 0;
-  background: var(--bg);
-  color: var(--ink);
+  background: #dbdbdb;
+  color: #666;
   font-family: Arial, Helvetica, sans-serif;
-  line-height: 1.45;
+  font-size: 13px;
 }
 
-.app-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  gap: 20px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid var(--line);
-}
-
-h1 {
-  margin: 0;
-  font-size: 24px;
-}
-
-#summary {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.search {
-  display: grid;
-  gap: 5px;
-  min-width: 280px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.search input {
-  width: 100%;
-  min-height: 38px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 15px;
-}
-
-.layout {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  min-height: calc(100vh - 75px);
-}
-
-.topics-panel {
-  position: sticky;
-  top: 73px;
-  align-self: start;
-  height: calc(100vh - 73px);
-  overflow: auto;
-  padding: 14px;
-  background: #edf1f5;
-  border-right: 1px solid var(--line);
-}
-
-.topic-button {
-  width: 100%;
-  min-height: 34px;
-  margin-bottom: 7px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 7px 9px;
-  background: transparent;
-  color: var(--ink);
-  text-align: left;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.topic-button:hover,
-.topic-button.active {
-  border-color: #a9c9c2;
-  background: var(--accent-soft);
-  color: #073d36;
-}
-
-.topic-count {
-  float: right;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.tickets-panel {
-  padding: 18px;
-}
-
-.pages-panel {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-width: 1180px;
-  margin: 0 auto 14px;
-}
-
-.page-button {
-  min-width: 36px;
-  min-height: 32px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+.content-wrapper {
+  min-height: 100vh;
   background: #fff;
-  color: var(--ink);
-  cursor: pointer;
+  padding: 20px 0 40px;
 }
 
-.page-button:hover,
-.page-button.active {
-  border-color: #a9c9c2;
-  background: var(--accent-soft);
-  color: #073d36;
-}
-
-.page-button-all {
-  min-width: 68px;
-}
-
-.tickets-grid {
-  display: grid;
-  gap: 14px;
-  max-width: 1180px;
+.container {
+  width: 970px;
   margin: 0 auto;
 }
 
-.ticket-container {
-  display: grid;
-  grid-template-columns: minmax(160px, 280px) minmax(0, 1fr);
-  gap: 14px;
-  padding: 14px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+.container:after,
+.clearfix:after {
+  content: "";
+  display: table;
+  clear: both;
 }
 
-.ticket-container .t-image {
-  grid-row: span 4;
-  margin: 0;
+.page-tickets-list .tickets-topics {
+  width: 175px;
+  float: left;
 }
 
-.ticket-container .t-image img {
+.page-tickets-list .tickets-list.with-topics {
+  width: 750px;
+  float: right;
+}
+
+.page-tickets-list .text-content h1 {
+  background: none;
+  text-align: center;
+  color: #535353;
+  font-size: 30px;
+  font-weight: normal;
+  margin: 0 0 30px;
+}
+
+.page-tickets-list .text-content h1 .light {
   display: block;
-  width: 100%;
-  height: auto;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
+  margin: 5px 0;
+  color: #b0b0b0;
+  font-size: 16px;
 }
 
-.t-num {
-  width: fit-content;
-  border-radius: 999px;
-  padding: 3px 9px;
-  background: #263445;
-  color: #fff;
-  font-weight: 700;
-  font-size: 13px;
+.tickets-cats-title {
+  color: #919191;
+  font-size: 20px;
+  font-weight: normal;
+  margin: 20px 0 10px;
 }
 
-.t-question-inner {
+.tickets-topics-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tickets-topics-list li {
+  padding-bottom: 5px;
+}
+
+.tickets-topics-list a {
   display: block;
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-}
-
-.t-cover {
-  display: grid;
-  gap: 8px;
-}
-
-.t-answer {
-  margin: 0;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fbfcfd;
-}
-
-.t-answer.ans-empty {
-  display: none;
-}
-
-.t-answer-inner {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 8px;
-  align-items: start;
-  padding: 8px;
-}
-
-.t-a-num span {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  border-radius: 50%;
-  background: #e7ebf0;
-  color: #384253;
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.t-answer[data-is-correct-list="true"] {
-  border-color: #9ad5b7;
-  background: var(--correct-soft);
-}
-
-.t-answer[data-is-correct-list="true"] .t-a-num span {
-  background: var(--correct);
-  color: #fff;
-}
-
-.sorry,
-.ticket-link {
-  display: none;
-}
-
-.desc-button {
-  display: none;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: #fff;
-  color: var(--accent);
+  background: #e0e0e0;
+  color: #666;
+  padding: 10px 10px 10px 30px;
+  line-height: 1.2;
+  border-radius: 5px;
+  text-decoration: none;
   cursor: pointer;
-  font-weight: 700;
+}
+
+.tickets-topics-list a .id {
+  display: block;
+  margin-left: -30px;
+  width: 27px;
+  text-align: right;
+  float: left;
+}
+
+.tickets-topics-list a:hover {
+  box-shadow: 0 0 1px #000;
+  color: #000;
+  background: #eee;
+}
+
+.tickets-topics-list a.active {
+  background: #535353;
+  color: #ffb83b;
+  box-shadow: none;
+}
+
+.on-pagination {
+  text-align: center;
+  padding: 0 0 20px;
+  clear: both;
+}
+
+.on-pagination:last-of-type {
+  padding: 40px 0;
+}
+
+.on-pagination .paginator select {
+  margin: 0 10px;
+  display: inline-block;
+  width: auto;
+  vertical-align: middle;
+}
+
+.on-pagination .goto-ticket {
+  width: 38%;
+}
+
+.tickets-list .item {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px dashed #aaa;
+}
+
+.tickets-list .item:last-of-type {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ticket-container .sorry,
+.ticket-container .ticket-link {
+  display: none;
+}
+
+.ticket-container .desc-button {
+  display: none !important;
+  opacity: 1 !important;
 }
 
 .ticket-container.has-explanation .desc-button {
-  display: inline-grid;
+  display: block !important;
 }
 
-.desc-button::before {
-  content: "?";
-}
-
-.desc-button span {
-  display: none;
-}
-
-.desc-box {
-  display: none;
-  grid-column: 1 / -1;
-  border-top: 1px solid var(--line);
-  padding-top: 10px;
-  color: #384253;
-}
-
-.ticket-container.desc-open .desc-box {
+.ticket-container.desc-opened .desc-box {
   display: block;
-}
-
-.desc-title {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.desc-title a {
-  display: none;
 }
 
 .empty {
-  padding: 40px 20px;
-  color: var(--muted);
+  padding: 50px 0;
+  color: #8a8a8a;
   text-align: center;
+  font-size: 18px;
 }
 
-@media (max-width: 820px) {
-  .app-header {
-    position: static;
-    display: grid;
-    padding: 14px;
+@media (max-width: 980px) {
+  body .container {
+    width: auto !important;
+    margin: 0 10px;
   }
 
-  .search {
-    min-width: 0;
+  .page-tickets-list .tickets-topics,
+  .page-tickets-list .tickets-list.with-topics {
+    width: auto;
+    float: none;
   }
 
-  .layout {
-    display: block;
+  .tickets-topics {
+    margin-bottom: 20px;
   }
 
-  .topics-panel {
-    position: static;
+  .ticket-container.ticket-container-small {
+    width: 100%;
     height: auto;
-    max-height: 260px;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .ticket-container {
-    grid-template-columns: 1fr;
-  }
-
-  .ticket-container .t-image {
-    grid-row: auto;
+    min-height: 512px;
   }
 }
 `);
@@ -734,13 +628,13 @@ h1 {
   const data = window.TEORIA_AM_DATA || { tickets: [], topics: [] };
   const translations = window.TEORIA_RU_TRANSLATIONS || {};
   const topicsEl = document.querySelector("#topics");
-  const pagesEl = document.querySelector("#pages");
+  const paginationTopEl = document.querySelector("#pagination-top");
+  const paginationBottomEl = document.querySelector("#pagination-bottom");
   const ticketsEl = document.querySelector("#tickets");
-  const summaryEl = document.querySelector("#summary");
-  const searchEl = document.querySelector("#search");
+  const titleEl = document.querySelector("#page-title");
   const initialState = new URLSearchParams(location.hash.slice(1));
   let activeTopic = initialState.get("topic") || "all";
-  let activePage = initialState.get("page") || "all";
+  let activePage = initialState.get("page") || "1";
 
   const byId = new Map(data.tickets.map((ticket) => [ticket.id, ticket]));
 
@@ -808,7 +702,7 @@ h1 {
     if (descButton) {
       descButton.setAttribute("title", "Пояснение");
       descButton.addEventListener("click", () => {
-        ticketEl.classList.toggle("desc-open");
+        ticketEl.classList.toggle("desc-opened");
       });
     }
   }
@@ -833,7 +727,7 @@ h1 {
     if (activeTopic !== "all") {
       params.set("topic", activeTopic);
     }
-    if (activeTopic === "all" && activePage !== "all") {
+    if (activeTopic === "all" && activePage !== "1") {
       params.set("page", activePage);
     }
 
@@ -841,70 +735,138 @@ h1 {
     history.replaceState(null, "", hash ? \`\${location.pathname}#\${hash}\` : location.pathname);
   }
 
-  function matchesSearch(ticket, query) {
-    if (!query) {
-      return true;
-    }
-
-    const translation = translations[ticket.id];
-    const translatedQuestion = translation?.question || "";
-    const translatedAnswers = Object.values(translation?.answers || {}).join(" ");
-    return [ticket.id, ticket.question, translatedQuestion, translatedAnswers].join(" ").toLowerCase().includes(query);
-  }
-
   function renderTopics() {
-    topicsEl.innerHTML = data.topics.map((topic) => {
-      const count = topic.tickets.length;
-      return \`<button class="topic-button" type="button" data-topic="\${topic.id}"><span>\${topic.id}. \${topic.title}</span><span class="topic-count">\${count}</span></button>\`;
-    }).join("");
-
-    document.querySelectorAll(".topic-button").forEach((button) => {
-      button.addEventListener("click", () => {
-        activeTopic = button.dataset.topic;
-        activePage = "all";
-        writeHash();
-        render();
-      });
-    });
-  }
-
-  function renderPages() {
-    if (activeTopic !== "all") {
-      pagesEl.innerHTML = "";
-      return;
-    }
-
-    pagesEl.innerHTML = [
-      \`<button class="page-button page-button-all" type="button" data-page="all">Все</button>\`,
-      ...allPages().map((page) => \`<button class="page-button" type="button" data-page="\${page}">\${page}</button>\`)
+    topicsEl.innerHTML = [
+      \`<li><a href="#" data-topic="all"><span class="id"></span>Все</a></li>\`,
+      ...data.topics.map((topic) => \`<li><a href="#" data-topic="\${topic.id}"><span class="id">\${topic.id}.</span>\${topic.title}</a></li>\`)
     ].join("");
 
-    pagesEl.querySelectorAll(".page-button").forEach((button) => {
-      button.classList.toggle("active", button.dataset.page === activePage);
-      button.addEventListener("click", () => {
-        activePage = button.dataset.page;
+    topicsEl.querySelectorAll("a[data-topic]").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        activeTopic = link.dataset.topic;
+        activePage = "1";
         writeHash();
         render();
+        window.scrollTo({ top: 0, behavior: "smooth" });
       });
     });
+  }
+
+  function paginationHtml() {
+    if (activeTopic !== "all") {
+      return "";
+    }
+
+    const pages = allPages();
+    const index = pages.indexOf(activePage);
+    const previous = pages[index - 1];
+    const next = pages[index + 1];
+    const options = pages.map((page) => {
+      const selected = page === activePage ? ' selected="selected"' : "";
+      const label = page === activePage ? \`- страница \${page} -\` : \`страница \${page}\`;
+      const cls = page === activePage ? ' class="noaction"' : "";
+      return \`<option\${cls}\${selected} value="\${page}">\${label}</option>\`;
+    }).join("");
+
+    return \`<div class="pull-left paginator">
+      <button class="btn btn-default page-prev" type="button"\${previous ? "" : " disabled"}>‹ Предыдущая</button>
+      <select title="" class="form-control paginator-select">\${options}</select>
+      <button class="btn btn-default page-next" type="button"\${next ? "" : " disabled"}>Следующая ›</button>
+    </div>
+    <form class="pull-right goto-ticket">
+      <div class="input-group" title="Введите номер билета">
+        <span class="input-group-addon">#</span>
+        <input type="number" pattern="\\\\d*" name="ticket" class="form-control number-input" placeholder="номер билета">
+        <span class="input-group-btn">
+          <button class="btn btn-default" type="submit">Перейти</button>
+        </span>
+      </div>
+    </form>\`;
+  }
+
+  function bindPagination(container) {
+    const pages = allPages();
+    const index = pages.indexOf(activePage);
+    const previous = pages[index - 1];
+    const next = pages[index + 1];
+
+    container.querySelector(".paginator-select")?.addEventListener("change", (event) => {
+      activePage = event.target.value;
+      writeHash();
+      render();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    container.querySelector(".page-prev")?.addEventListener("click", () => {
+      if (previous) {
+        activePage = previous;
+        writeHash();
+        render();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+
+    container.querySelector(".page-next")?.addEventListener("click", () => {
+      if (next) {
+        activePage = next;
+        writeHash();
+        render();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+
+    container.querySelector(".goto-ticket")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const id = new FormData(event.currentTarget).get("ticket");
+      const ticket = byId.get(String(id || "").trim());
+      if (!ticket) {
+        return;
+      }
+
+      activeTopic = "all";
+      activePage = ticket.allPage || "1";
+      writeHash();
+      render();
+      document.getElementById(\`ticket-\${ticket.id}\`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }
+
+  function renderPagination() {
+    const html = paginationHtml();
+    paginationTopEl.innerHTML = html;
+    paginationBottomEl.innerHTML = html;
+    bindPagination(paginationTopEl);
+    bindPagination(paginationBottomEl);
+  }
+
+  function renderTitle(count) {
+    titleEl.textContent = activeTopic === "all"
+      ? "AM категория "
+      : \`AM категория: \${data.topics.find((topic) => topic.id === activeTopic)?.title || ""} \`;
+
+    const light = document.createElement("span");
+    light.className = "light";
+    light.textContent = activeTopic === "all"
+      ? \`Всего \${data.tickets.length} билетов, страница \${activePage}\`
+      : \`Всего \${count} билетов\`;
+    titleEl.append(light);
   }
 
   function render() {
-    const query = searchEl.value.trim().toLowerCase();
     let filtered = topicTickets(activeTopic);
-    if (activeTopic === "all" && activePage !== "all") {
+    if (activeTopic === "all") {
       filtered = filtered.filter((ticket) => ticket.allPage === activePage);
     }
-    filtered = filtered.filter((ticket) => matchesSearch(ticket, query));
 
-    document.querySelectorAll(".topic-button").forEach((button) => {
-      button.classList.toggle("active", button.dataset.topic === activeTopic);
+    topicsEl.querySelectorAll("a[data-topic]").forEach((link) => {
+      link.classList.toggle("active", link.dataset.topic === activeTopic);
     });
 
-    renderPages();
-    summaryEl.textContent = \`Показано \${filtered.length} из \${data.tickets.length}\`;
+    renderTitle(filtered.length);
+    renderPagination();
     ticketsEl.innerHTML = filtered.length
-      ? filtered.map((ticket) => \`<div class="ticket-shell" id="ticket-\${ticket.id}">\${ticket.html}</div>\`).join("")
+      ? filtered.map((ticket) => \`<div class="item" id="ticket-\${ticket.id}">\${ticket.html}</div>\`).join("")
       : '<div class="empty">Ничего не найдено</div>';
 
     ticketsEl.querySelectorAll(".ticket-container").forEach((ticketEl) => {
@@ -913,7 +875,6 @@ h1 {
     });
   }
 
-  searchEl.addEventListener("input", render);
   renderTopics();
   render();
 })();\n`);
@@ -986,6 +947,7 @@ async function build() {
   await downloadImages();
   await writeTranslationFile(existingTranslation);
   await writeDataFile();
+  await writeVendorCss();
   await writeViewerFiles();
   await writeRouteShims();
 
