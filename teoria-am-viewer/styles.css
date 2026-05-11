@@ -6,6 +6,10 @@ body {
   font-size: 13px;
 }
 
+body .container {
+  width: 1048px !important;
+}
+
 .content-wrapper {
   min-height: 100vh;
   background: #fff;
@@ -22,6 +26,10 @@ body {
   content: "";
   display: table;
   clear: both;
+}
+
+.page-tickets-list {
+  zoom: 1.08;
 }
 
 .page-tickets-list .tickets-topics {
@@ -115,6 +123,10 @@ body {
   vertical-align: middle;
 }
 
+.on-pagination .paginator {
+  max-width: 60%;
+}
+
 .on-pagination .goto-ticket {
   width: 38%;
 }
@@ -166,6 +178,37 @@ body {
   font-size: 32px;
 }
 
+.scroll-top-button {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  font-size: 28px;
+  font-weight: bold;
+  line-height: 42px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: background-color 0.2s, opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+
+.scroll-top-button.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.scroll-top-button:hover {
+  background: rgba(0, 0, 0, 0.82);
+}
+
 .empty {
   padding: 50px 0;
   color: #8a8a8a;
@@ -173,7 +216,11 @@ body {
   font-size: 18px;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1080px) {
+  .page-tickets-list {
+    zoom: 1;
+  }
+
   body .container {
     width: auto !important;
     margin: 0 10px;
@@ -193,5 +240,20 @@ body {
     width: 100%;
     height: auto;
     min-height: 512px;
+  }
+
+  .on-pagination {
+    display: block;
+    text-align: center;
+  }
+
+  .on-pagination .paginator {
+    float: none !important;
+    max-width: none;
+  }
+
+  .on-pagination .goto-ticket {
+    width: 100%;
+    margin-top: 10px;
   }
 }

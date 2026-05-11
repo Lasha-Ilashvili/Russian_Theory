@@ -450,6 +450,10 @@ async function writeViewerFiles() {
   font-size: 13px;
 }
 
+body .container {
+  width: 1048px !important;
+}
+
 .content-wrapper {
   min-height: 100vh;
   background: #fff;
@@ -466,6 +470,10 @@ async function writeViewerFiles() {
   content: "";
   display: table;
   clear: both;
+}
+
+.page-tickets-list {
+  zoom: 1.08;
 }
 
 .page-tickets-list .tickets-topics {
@@ -559,6 +567,10 @@ async function writeViewerFiles() {
   vertical-align: middle;
 }
 
+.on-pagination .paginator {
+  max-width: 60%;
+}
+
 .on-pagination .goto-ticket {
   width: 38%;
 }
@@ -610,6 +622,37 @@ async function writeViewerFiles() {
   font-size: 32px;
 }
 
+.scroll-top-button {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  font-size: 28px;
+  font-weight: bold;
+  line-height: 42px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: background-color 0.2s, opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+
+.scroll-top-button.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.scroll-top-button:hover {
+  background: rgba(0, 0, 0, 0.82);
+}
+
 .empty {
   padding: 50px 0;
   color: #8a8a8a;
@@ -617,7 +660,11 @@ async function writeViewerFiles() {
   font-size: 18px;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1080px) {
+  .page-tickets-list {
+    zoom: 1;
+  }
+
   body .container {
     width: auto !important;
     margin: 0 10px;
@@ -638,6 +685,21 @@ async function writeViewerFiles() {
     height: auto;
     min-height: 512px;
   }
+
+  .on-pagination {
+    display: block;
+    text-align: center;
+  }
+
+  .on-pagination .paginator {
+    float: none !important;
+    max-width: none;
+  }
+
+  .on-pagination .goto-ticket {
+    width: 100%;
+    margin-top: 10px;
+  }
 }
 `);
 
@@ -649,11 +711,49 @@ async function writeViewerFiles() {
   const paginationBottomEl = document.querySelector("#pagination-bottom");
   const ticketsEl = document.querySelector("#tickets");
   const titleEl = document.querySelector("#page-title");
-  const initialState = new URLSearchParams(location.hash.slice(1));
-  let activeTopic = initialState.get("topic") || "all";
-  let activePage = initialState.get("page") || "1";
+  const TOPIC_PAGE_SIZE = 20;
+  let activeTopic = "all";
+  let activePage = "1";
 
   const byId = new Map(data.tickets.map((ticket) => [ticket.id, ticket]));
+
+  function readState() {
+    const state = new URLSearchParams(location.hash.slice(1));
+    activeTopic = state.get("topic") || "all";
+    activePage = state.get("page") || "1";
+  }
+
+  function stateHref(topic = activeTopic, page = activePage) {
+    const params = new URLSearchParams();
+    if (topic !== "all") {
+      params.set("topic", topic);
+    }
+    if (page !== "1") {
+      params.set("page", page);
+    }
+
+    const hash = params.toString();
+    return \`\${location.pathname}\${hash ? \`#\${hash}\` : ""}\`;
+  }
+
+  function shouldHandleNavigation(event) {
+    return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+  }
+
+  function scrollPageTop() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function setState(topic, page = "1", scrollToTop = true) {
+    activeTopic = topic;
+    activePage = page;
+    normalizeState();
+    history.replaceState(null, "", stateHref());
+    render();
+    if (scrollToTop) {
+      scrollPageTop();
+    }
+  }
 
   function usableText(value) {
     return typeof value === "string" && value.trim() ? value : null;
@@ -765,43 +865,51 @@ async function writeViewerFiles() {
       .sort((a, b) => Number(a) - Number(b));
   }
 
-  function writeHash() {
-    const params = new URLSearchParams();
-    if (activeTopic !== "all") {
-      params.set("topic", activeTopic);
-    }
-    if (activeTopic === "all" && activePage !== "1") {
-      params.set("page", activePage);
+  function currentPages() {
+    if (activeTopic === "all") {
+      return allPages();
     }
 
-    const hash = params.toString();
-    history.replaceState(null, "", hash ? \`\${location.pathname}#\${hash}\` : location.pathname);
+    const count = topicTickets(activeTopic).length;
+    const pageCount = Math.max(1, Math.ceil(count / TOPIC_PAGE_SIZE));
+    return Array.from({ length: pageCount }, (_, index) => String(index + 1));
+  }
+
+  function normalizeState() {
+    if (activeTopic !== "all" && !data.topics.some((topic) => topic.id === activeTopic)) {
+      activeTopic = "all";
+    }
+
+    const pages = currentPages();
+    if (!pages.includes(activePage)) {
+      activePage = "1";
+    }
   }
 
   function renderTopics() {
     topicsEl.innerHTML = [
-      \`<li><a href="#" data-topic="all"><span class="id"></span>Все</a></li>\`,
-      ...data.topics.map((topic) => \`<li><a href="#" data-topic="\${topic.id}"><span class="id">\${topic.id}.</span>\${topic.title}</a></li>\`)
+      \`<li><a href="\${stateHref("all", "1")}" data-topic="all"><span class="id"></span>Все</a></li>\`,
+      ...data.topics.map((topic) => \`<li><a href="\${stateHref(topic.id, "1")}" data-topic="\${topic.id}"><span class="id">\${topic.id}.</span>\${topic.title}</a></li>\`)
     ].join("");
 
     topicsEl.querySelectorAll("a[data-topic]").forEach((link) => {
       link.addEventListener("click", (event) => {
+        if (!shouldHandleNavigation(event)) {
+          return;
+        }
+
         event.preventDefault();
-        activeTopic = link.dataset.topic;
-        activePage = "1";
-        writeHash();
-        render();
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        setState(link.dataset.topic, "1");
       });
     });
   }
 
   function paginationHtml() {
-    if (activeTopic !== "all") {
+    const pages = currentPages();
+    if (pages.length <= 1) {
       return "";
     }
 
-    const pages = allPages();
     const index = pages.indexOf(activePage);
     const previous = pages[index - 1];
     const next = pages[index + 1];
@@ -813,9 +921,9 @@ async function writeViewerFiles() {
     }).join("");
 
     return \`<div class="pull-left paginator">
-      <button class="btn btn-default page-prev" type="button"\${previous ? "" : " disabled"}>‹ Предыдущая</button>
-      <select title="" class="form-control paginator-select">\${options}</select>
-      <button class="btn btn-default page-next" type="button"\${next ? "" : " disabled"}>Следующая ›</button>
+      <a class="btn btn-default page-nav page-prev\${previous ? "" : " disabled"}" href="\${previous ? stateHref(activeTopic, previous) : stateHref()}" data-page="\${previous || activePage}" aria-disabled="\${previous ? "false" : "true"}">‹ Предыдущая</a>
+      <select title="Перейти на страницу" class="form-control paginator-select">\${options}</select>
+      <a class="btn btn-default page-nav page-next\${next ? "" : " disabled"}" href="\${next ? stateHref(activeTopic, next) : stateHref()}" data-page="\${next || activePage}" aria-disabled="\${next ? "false" : "true"}">Следующая ›</a>
     </div>
     <form class="pull-right goto-ticket">
       <div class="input-group" title="Введите номер билета">
@@ -829,33 +937,45 @@ async function writeViewerFiles() {
   }
 
   function bindPagination(container) {
-    const pages = allPages();
-    const index = pages.indexOf(activePage);
-    const previous = pages[index - 1];
-    const next = pages[index + 1];
+    container.querySelectorAll("a[data-page]").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        if (!shouldHandleNavigation(event)) {
+          return;
+        }
 
-    container.querySelector(".paginator-select")?.addEventListener("change", (event) => {
-      activePage = event.target.value;
-      writeHash();
-      render();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+        event.preventDefault();
+        if (link.classList.contains("disabled")) {
+          return;
+        }
+
+        setState(activeTopic, link.dataset.page);
+      });
     });
 
-    container.querySelector(".page-prev")?.addEventListener("click", () => {
-      if (previous) {
-        activePage = previous;
-        writeHash();
-        render();
-        window.scrollTo({ top: 0, behavior: "smooth" });
+    container.querySelectorAll("a[data-page]").forEach((link) => {
+      link.addEventListener("auxclick", (event) => {
+        if (link.classList.contains("disabled")) {
+          event.preventDefault();
+          return;
+        }
+      });
+    });
+
+    container.querySelector(".paginator-select")?.addEventListener("change", (event) => {
+      setState(activeTopic, event.target.value);
+    });
+
+    container.querySelector(".paginator-select")?.addEventListener("mousedown", (event) => {
+      if (event.button === 1) {
+        event.preventDefault();
+        window.open(stateHref(activeTopic, event.currentTarget.value), "_blank", "noopener");
       }
     });
 
-    container.querySelector(".page-next")?.addEventListener("click", () => {
-      if (next) {
-        activePage = next;
-        writeHash();
-        render();
-        window.scrollTo({ top: 0, behavior: "smooth" });
+    container.querySelector(".paginator-select")?.addEventListener("auxclick", (event) => {
+      if (event.button === 1) {
+        event.preventDefault();
+        window.open(stateHref(activeTopic, event.currentTarget.value), "_blank", "noopener");
       }
     });
 
@@ -869,7 +989,8 @@ async function writeViewerFiles() {
 
       activeTopic = "all";
       activePage = ticket.allPage || "1";
-      writeHash();
+      normalizeState();
+      history.replaceState(null, "", stateHref());
       render();
       document.getElementById(\`ticket-\${ticket.id}\`)?.scrollIntoView({ block: "start", behavior: "smooth" });
     });
@@ -888,21 +1009,57 @@ async function writeViewerFiles() {
       ? "AM категория "
       : \`AM категория: \${data.topics.find((topic) => topic.id === activeTopic)?.title || ""} \`;
 
+    const total = topicTickets(activeTopic).length;
+    const pages = currentPages();
     const light = document.createElement("span");
     light.className = "light";
     light.textContent = activeTopic === "all"
       ? \`Всего \${data.tickets.length} билетов, страница \${activePage}\`
-      : \`Всего \${count} билетов\`;
+      : pages.length > 1
+        ? \`Всего \${total} билетов, страница \${activePage}\`
+        : \`Всего \${count} билетов\`;
     titleEl.append(light);
   }
 
-  function render() {
+  function visibleTickets() {
     let filtered = topicTickets(activeTopic);
     if (activeTopic === "all") {
-      filtered = filtered.filter((ticket) => ticket.allPage === activePage);
+      return filtered.filter((ticket) => ticket.allPage === activePage);
     }
 
+    const pages = currentPages();
+    if (pages.length <= 1) {
+      return filtered;
+    }
+
+    const pageIndex = Math.max(0, Number(activePage) - 1);
+    return filtered.slice(pageIndex * TOPIC_PAGE_SIZE, (pageIndex + 1) * TOPIC_PAGE_SIZE);
+  }
+
+  function setupScrollTopButton() {
+    const button = document.createElement("button");
+    button.className = "scroll-top-button";
+    button.type = "button";
+    button.title = "Наверх";
+    button.setAttribute("aria-label", "Наверх");
+    button.innerHTML = "↑";
+    document.body.append(button);
+
+    const updateVisibility = () => {
+      button.classList.toggle("visible", window.scrollY > 350);
+    };
+
+    button.addEventListener("click", scrollPageTop);
+    window.addEventListener("scroll", updateVisibility, { passive: true });
+    updateVisibility();
+  }
+
+  function render() {
+    normalizeState();
+    const filtered = visibleTickets();
+
     topicsEl.querySelectorAll("a[data-topic]").forEach((link) => {
+      link.href = stateHref(link.dataset.topic, "1");
       link.classList.toggle("active", link.dataset.topic === activeTopic);
     });
 
@@ -920,7 +1077,14 @@ async function writeViewerFiles() {
   }
 
   renderTopics();
+  readState();
+  setupScrollTopButton();
   render();
+  window.addEventListener("hashchange", () => {
+    readState();
+    render();
+    scrollPageTop();
+  });
 })();\n`);
 }
 
