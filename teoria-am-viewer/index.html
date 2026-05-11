@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AM tickets offline</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>AM билеты</h1>
+      <p id="summary">Загрузка...</p>
+    </div>
+    <label class="search">
+      <span>Поиск</span>
+      <input id="search" type="search" placeholder="Номер или текст">
+    </label>
+  </header>
+
+  <main class="layout">
+    <aside class="topics-panel">
+      <button class="topic-button active" type="button" data-topic="all">Все</button>
+      <div id="topics"></div>
+    </aside>
+
+    <section class="tickets-panel">
+      <nav id="pages" class="pages-panel" aria-label="Pages"></nav>
+      <div id="tickets" class="tickets-grid"></div>
+    </section>
+  </main>
+
+  <script src="./tickets-ru-translations.js"></script>
+  <script src="./tickets-data.js"></script>
+  <script src="./viewer.js"></script>
+</body>
+</html>

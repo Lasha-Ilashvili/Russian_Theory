@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AM tickets redirect</title>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const hash = new URLSearchParams();
+    hash.set("topic", "21");
+    location.replace("../../../teoria-am-viewer/index.html" + (hash.toString() ? "#" + hash.toString() : ""));
+  </script>
+</head>
+<body>
+  <a href="../../../teoria-am-viewer/index.html">Open offline viewer</a>
+</body>
+</html>
