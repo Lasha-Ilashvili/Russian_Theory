@@ -1,6 +1,3 @@
-# Local rebuild helper, not needed by the deployed static site.
-build-offline-viewer.mjs
-
 # OS/editor noise.
 .DS_Store
 Thumbs.db
