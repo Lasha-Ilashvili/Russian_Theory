@@ -219,16 +219,20 @@
     const index = pages.indexOf(activePage);
     const previous = pages[index - 1];
     const next = pages[index + 1];
-    const options = pages.map((page) => {
-      const selected = page === activePage ? ' selected="selected"' : "";
-      const label = page === activePage ? `- страница ${page} -` : `страница ${page}`;
-      const cls = page === activePage ? ' class="noaction"' : "";
-      return `<option${cls}${selected} value="${page}">${label}</option>`;
+    const pageLinks = pages.map((page) => {
+      const href = stateHref(activeTopic, page);
+      const isActive = page === activePage;
+      return `<a href="${href}" data-page-select="${page}" class="page-select-item${isActive ? " active" : ""}" title="Перейти на страницу ${page}">страница ${page}</a>`;
     }).join("");
 
     return `<div class="pull-left paginator">
       <a class="btn btn-default page-nav page-prev${previous ? "" : " disabled"}" href="${previous ? stateHref(activeTopic, previous) : stateHref()}" data-page="${previous || activePage}" aria-disabled="${previous ? "false" : "true"}">‹ Предыдущая</a>
-      <select title="Перейти на страницу" class="form-control paginator-select">${options}</select>
+      <div class="page-select-dropdown">
+        <button type="button" class="btn btn-default page-select-toggle" title="Перейти на страницу">страница ${activePage}</button>
+        <div class="page-select-menu">
+          ${pageLinks}
+        </div>
+      </div>
       <a class="btn btn-default page-nav page-next${next ? "" : " disabled"}" href="${next ? stateHref(activeTopic, next) : stateHref()}" data-page="${next || activePage}" aria-disabled="${next ? "false" : "true"}">Следующая ›</a>
     </div>
     <form class="pull-right goto-ticket">
@@ -267,20 +271,35 @@
       });
     });
 
-    container.querySelector(".paginator-select")?.addEventListener("change", (event) => {
-      setState(activeTopic, event.target.value);
+    container.querySelectorAll("a[data-page-select]").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        if (!shouldHandleNavigation(event)) {
+          return;
+        }
+
+        event.preventDefault();
+        const page = link.dataset.pageSelect;
+        setState(activeTopic, page);
+      });
     });
 
-    container.querySelector(".paginator-select")?.addEventListener("mousedown", (event) => {
-      if (event.button !== 1) {
-        return;
-      }
+    const pageSelectDropdown = container.querySelector(".page-select-dropdown");
+    if (pageSelectDropdown) {
+      const toggle = pageSelectDropdown.querySelector(".page-select-toggle");
+      const menu = pageSelectDropdown.querySelector(".page-select-menu");
 
-      event.preventDefault();
+      toggle?.addEventListener("click", () => {
+        menu?.classList.toggle("open");
+        toggle?.classList.toggle("open");
+      });
 
-      const page = event.currentTarget.value;
-      window.open(stateHref(activeTopic, page), "_blank", "noopener");
-    });
+      document.addEventListener("click", (event) => {
+        if (!pageSelectDropdown.contains(event.target)) {
+          menu?.classList.remove("open");
+          toggle?.classList.remove("open");
+        }
+      });
+    }
 
     container.querySelector(".goto-ticket")?.addEventListener("submit", (event) => {
       event.preventDefault();
