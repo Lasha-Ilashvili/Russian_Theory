@@ -1,0 +1,8 @@
+<!--
+d=document;a='';a+='REFERER:'+escape(d.referrer)
+s=screen;a+='+RESOLUTION:'+s.width+'X'+s.height+'+JL:'+escape(location.href.substring(0, 1000))
+a+='+DEPT:'+(s.colorDepth?s.colorDepth:s.pixelDepth)
+js=12;f=0;
+if(window.self !== window.top){ f=1;}
+d.write('<a href="http://www.top.ge/index.php?h=97558#97558" target="_blank"><img src="https://counter.top.ge/cgi-bin/count222?ID:97558+JS:11+'+a+'+RAND:'+Math.random()*10000+'+ISFRM:'+f+'" alt="TOP.GE"'+' border="0" /></a>')
+//-->

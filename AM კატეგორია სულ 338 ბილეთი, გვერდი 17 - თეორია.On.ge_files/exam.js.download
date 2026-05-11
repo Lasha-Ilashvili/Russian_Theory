@@ -1,0 +1,712 @@
+
+
+$(document).ready(function () {
+
+    var TICKET_SIZE = 'large';
+    var windowVisibleHeight = $(window).height() - $("#onbar").height();
+    if( windowVisibleHeight < 700 ){
+        TICKET_SIZE = 'small';
+        $("body").addClass("ticket-size-small");
+    }
+    
+    var initExamLocale = getTeoriaSettings().locale;
+
+    if($(".questions-running-wrapper").length == 0) {
+        return;
+    }
+    
+    var $allQuestions = $("#all-questions");
+    //
+    var $catSelector = $(".exam-category-selector");
+    var $catSelectorInner = $catSelector.find(".inner");
+    $catSelector.find(".exam-category.active").prependTo($catSelectorInner);
+    $catSelector.on("click", ".exam-category:not(.active)", function(){
+        $catSelector.find(".exam-category.active").removeClass("active");
+        $(this).addClass("active").prependTo($catSelectorInner);
+        $catSelector.removeClass("opened");
+        checkStartScreen();
+    });
+    $catSelector.hover(
+        function(){
+            $catSelector.addClass("opened");
+        },function(){
+            $catSelector.removeClass("opened");
+        }
+    );
+    //
+    var $topicSelector = $(".exam-topics-selector");
+    $topicSelector.find("input").change(function(){
+        var $this = $(this);
+        if($this.is(":checked")){
+            $this.closest(".exam-topic").removeClass("dis");
+        } else {
+            $this.closest(".exam-topic").addClass("dis");
+        }
+        if( $topicSelector.find("input:not(:checked)").length == 0 ){
+            $topicSelector.addClass("all");
+        } else {
+            $topicSelector.removeClass("all");
+        }
+        checkStartScreen();
+    }).change();
+    $(".toggle-topics").click(function(){
+        var $checked = $topicSelector.find("input:checked");
+        var $unchecked = $topicSelector.find("input:not(:checked)");
+        if( $checked.length > $unchecked.length ){
+            $checked.checked(false).change();
+        } else {
+            $unchecked.checked(true).change();
+        }
+    });
+    //
+    $allQuestions.change(function(){
+        if($(this).is(":checked")){
+            $(".question-quantity-input-wrapper").addClass("dis");
+            $("#question-quantity").prop("disabled", true);
+        } else {
+            $(".question-quantity-input-wrapper").removeClass("dis");
+            $("#question-quantity").prop("disabled", false);
+        }
+    });
+    //
+    
+    current_question_index = 0;
+    correct_answers = 0;
+    mistakes = 0;
+    userTestJson = {};
+    
+    
+    function getExamSettings(){
+        var questions = parseInt($("#question-quantity").val());
+        if( questions < 1 || questions > 99 ){
+            questions = 30;
+        }
+        var topics = [];
+        $topicSelector.find("input:checked").each(function(){
+            topics.push( $(this).val() );
+        });
+        return {
+            category : parseInt($('.exam-category-selector .active').attr("data-category")),
+            questions : questions,
+            challenge : $("#challenge").is(":checked"),
+            all_questions : $("#all-questions").is(":checked"),
+            topics : topics,
+            //
+            autoShowCorrect : $("#auto-show-correct").is(":checked"),
+            autoNextStep : $("#auto-next-step").is(":checked")
+        }
+    }
+    function saveExamSettings(){
+        saveTeoriaSettings(getExamSettings());
+    }
+    function loadExamSettings(){
+        var settings = getTeoriaSettings();
+        if (isset(settings) ) {
+            if( isset(settings.category) ){
+                $('.exam-category-selector [data-category="'+settings.category+'"]').click();
+            }
+            if( isset(settings.questions) ){
+                $("#question-quantity").val(settings.questions);
+            }
+            if( isset(settings.challange) ){
+                $("#challenge").checked(settings.challange);
+            }
+            if( isset(settings.autoShowCorrect) ){
+                $("#auto-show-correct").checked(settings.autoShowCorrect);
+            }
+            if( isset(settings.autoNextStep) ){
+                $("#auto-next-step").checked(settings.autoNextStep);
+            }
+            if( isset(settings.topics) && settings.topics.length > 0 ){
+                $topicSelector.find("input:checked").checked(false).change();
+                $.each(settings.topics, function(idx, val){
+                    $topicSelector.find("input[name='topics["+val+"]']").checked(true).change();
+                });
+            }
+            if( isset(settings.all_questions) ){
+                $allQuestions.checked(settings.all_questions).change();
+            }
+        }
+        checkStartScreen();
+    }
+    loadExamSettings();
+    
+    
+    function checkStartScreen(){
+        // tournament
+        if( 
+            $('.exam-category-selector .active').attr("data-category") == "2" &&
+            $("#question-quantity").val() == "30" &&
+            $topicSelector.find("input:not(:checked)").length == 0
+        ){
+            $(".tournament").fadeIn("fast");
+        } else {
+            $(".tournament").fadeOut("fast");
+        }
+        // all questions
+        if( $topicSelector.find("input:not(:checked)").length > 0 ){
+            $allQuestions.closest("label:hidden").show();
+        } else {
+            $allQuestions.checked(false).change();
+            $allQuestions.closest("label").hide();
+        }
+        // topics TEMP
+        /*
+        if( $('.exam-category-selector .active').attr("data-category") != "2" ){
+            $topicSelector.closest(".spo-topics").hide();
+            $allQuestions.checked(false).change();
+            $allQuestions.closest("label:visible").hide();
+        } else {
+            $topicSelector.closest(".spo-topics").show();
+            if( $topicSelector.find("input:not(:checked)").length > 0 ){
+                $allQuestions.closest("label:hidden").show();
+            }
+        }
+        */
+    }
+    
+    
+
+
+    function preloadImages(arrayOfImages) {
+        for (index in arrayOfImages) {
+            if( arrayOfImages[index] != '' ){
+                $('<img/>')[0].src = arrayOfImages[index];
+            }
+        }
+    }
+
+    count = 0;
+    var timer;
+    function timerFunction() {
+        count = count + 1;
+        if (count >= 60) {
+            var minuteCount = Math.floor(count / 60);
+            var secondCount = count % 60;
+            if (minuteCount.toString().length == 1) {
+                minuteCount = "0" + minuteCount;
+            }
+            if (secondCount.toString().length == 1) {
+                secondCount = "0" + secondCount;
+            }
+            $("#timer").html("00:" + minuteCount + ":" + secondCount);
+        } else {
+            if (count.toString().length == 1) {
+                returnCount = "0" + count;
+            } else {
+                returnCount = count;
+            }
+            $("#timer").html("00:00:" + returnCount);
+        }
+    }
+
+    start_test = function(log_token) {
+        
+        var $activeCat = $('.exam-category-selector .active');
+        var getCategoryId = parseInt($activeCat.attr('data-category'));
+        var getLimit = parseInt($("#question-quantity").val());
+        var all_questions = $allQuestions.is(":checked");
+        var challenge = $('#challenge').is(":checked");
+        var topics_selected = 'all';
+        if( $topicSelector.find("input:not(:checked)").length > 0 ){
+            topics_selected = [];
+            $topicSelector.find("input:checked").each(function(){
+                topics_selected.push( $(this).val() );
+            })
+        }
+        if( topics_selected != 'all' && topics_selected.length == 0 ){
+            $topicSelector.find("input").checked(true).change();
+            topics_selected == 'all';
+        }
+        if( topics_selected == 'all' ){
+            all_questions = false;
+            $allQuestions.checked(false).change();
+        }
+        
+        saveExamSettings();
+        
+        gtag('event', 'page_view', {
+            'page_location': 'exam',
+            'page_title': 'გამოცდა'
+        });
+        gtag('event', 'level_start', {
+            'event_category': 'level_start',
+            'level_name': 'Teoria Exam'
+        });
+        
+        if( isNaN(getLimit) || getLimit < 2 || getLimit > 99 ){
+            getLimit = 30;
+        }
+        if( challenge && (getCategoryId != 2 || getLimit != 30 || all_questions || topics_selected != 'all') ) {
+            challenge = false;
+        }
+        
+        $(".start-page:visible").fadeOut("fast");
+        $('.exam_end:visible').fadeOut("fast");
+        $('.exam-loader').fadeIn();
+
+        current_question_index = 0;
+        correct_answers = 0;
+        mistakes = 0;
+
+        count = 0;
+        clearInterval(timer);
+
+        $('#true').html(correct_answers);
+        $('#false').html(mistakes);
+        $('#ticket-number-now').html(current_question_index+1);
+
+        if (log_token != undefined) {
+            getQuestions(null, null, 0, log_token, topics_selected, all_questions);
+        } else {
+            getQuestions(getCategoryId, getLimit, challenge, null, topics_selected, all_questions);
+        }
+    }
+
+
+    var log_token = window.location.hash;
+    if (log_token != undefined && log_token != '') {
+        $(".tournament input").checked(false);
+        start_test(log_token.substr(1, log_token.length));
+    }
+
+    $("#start").click(function () {
+        start_test();
+    });
+
+    function getQuestions(catId, limitNumber, challenge, log_token, topics, all_questions) {
+        var questionId = 0;
+        var questions = Controller.mainMethod.startTest(catId, limitNumber, log_token, topics, all_questions);
+
+        questions.done(function (data) {
+
+            $(".exam-loader").fadeOut("fast");
+            $(".questions-running-wrapper").fadeIn("fast", function(){               
+                // scroll to test
+                $("html, body").animate({scrollTop:$(".image-container").offset().top-10-$("#onbar").height()}, "500"); 
+            });
+            /* start timer */
+            timer = setInterval(timerFunction, 1000);
+
+            tickets_number = 0;
+            for(key in data) {
+
+                if (data[key]['uniq_id'] != undefined) {
+                    Controller.mainMethod.uniq_id = data[key]['uniq_id'];
+                    Controller.mainMethod.cat_id = data[key]['cat_id'];
+                    data.pop(key);
+                } else {
+                    tickets_number++;
+                }
+
+            }
+
+
+            $("#ticket-number-sum").html(data.length);
+
+            var htmlTable = '';
+            for (var i = 0; i < tickets_number; i++) {
+                htmlTable += '<td data-question="' + i + '"></td>';
+            }
+
+            $("#question-bullets-td").html(htmlTable);
+            $("#question-bullets-td >td:first-child").addClass("bullet-current");
+
+            userTestJson = data;
+
+            Controller.mainMethod.userTestJson = userTestJson;
+
+            Controller.mainMethod.cat_id = catId;
+
+            if (challenge == true) {
+                Controller.mainMethod.challenge = 1;
+            } else {
+                Controller.mainMethod.challenge = 0;
+            }
+
+
+            var images_to_preload = new Array();
+
+            for (key in data) {
+                images_to_preload.push(data[key].image);
+            }
+            if (images_to_preload.length > 0) {
+                preloadImages(images_to_preload);
+            }
+
+            generateQuestions(data, questionId);
+        });
+    }
+
+    function generateQuestions(json, questionId) {
+        var ticketItem = json[questionId];
+        
+        var $newHtml = $(getTicketHTML(ticketItem, TICKET_SIZE)).hide();
+        var $oldTicket = $("#question .ticket-container");
+        
+        if( $oldTicket.length > 0 ){
+            $oldTicket.animate({
+                left:-500,
+                opacity:0
+            }, 100, "swing", function(){
+                $(this).remove();
+                $("#question").append($newHtml);
+                adjustTicketFontSize($newHtml);
+                $newHtml.fadeIn();
+            });
+        } else {
+            $("#question").append($newHtml);
+            adjustTicketFontSize($newHtml);
+            $newHtml.fadeIn();
+        }
+    }
+
+    function getTicketHTML(ticket, size, hover) {
+        size = (typeof size === "undefined") ? "large" : size;
+        hover = (typeof hover === "undefined") ? true : hover;
+
+        if (typeof ticket.answers == 'string') {
+            var jsonAnswers = $.parseJSON(ticket.answers);
+            ticket.answers = jsonAnswers;
+        }
+
+        // build answers html
+        var $answers = $("<div></div>").addClass("t-cover answers-num-"+Object.size(ticket.answers));
+        var $ans;
+        var $output;
+        for (var i = 1; i <= 4; i++) {
+
+            $ans = $('<p></p>').addClass("t-answer t-answer-" + i);
+
+            if (typeof ticket.answers[i] != 'undefined') {
+                if (typeof ticket.answers[i].selected != 'undefined' && ticket.answers[i].selected) {
+                    $ans.addClass("ans-selected");
+                }
+                if (ticket.answers[i].correct) {
+                    $ans.addClass("ans-true");
+                }
+                if (ticket.answers[i].wrong) {
+                    $ans.addClass("ans-false");
+                }
+                
+                if( isset(ticket.answers[i]) && isset(ticket.correct_answer) && ticket.answers[i]['real_id'] == ticket.correct_answer ) {
+                    $ans.attr('data-is-correct-list', 'true');
+                }
+
+                $ans.append($('<span class="t-answer-inner"><span class="t-a-num"><span></span></span><span class="t-a-text"><span class="text-wrap"></span></span></span>'));
+                $ans.find(".t-a-num span").text(i);
+                $ans.find(".t-a-text .text-wrap").html(ticket.answers[i].text);
+            } else {
+                $ans.addClass("ans-empty");
+            }
+            $answers.append($ans);
+        }
+
+        $output = $('<article></article>').addClass("ticket-container locale-"+ initExamLocale +" ticket-container-" + size + " cutoff-" + ticket.cutoff);
+        $output.attr('id', 'ticket-'+ticket.id);
+        if (parseInt(ticket.cutoff) > 1) {
+            $output.addClass("big-answers");
+        }
+        if (hover) {
+            $output.addClass("hovering");
+        }
+        if( ticket.cutoff != 3 ){
+            $output.append($('<figure class="t-image"></figure>'));
+            $output.find(".t-image").append($("<img>").attr("src", ticket.image));
+        }
+        $output.append( $('<div class="t-num">#'+ticket.id+'</div>') );
+        $output.append( $('<div class="t-question"><p class="t-question-inner"><span class="text-wrap">'+ticket.question+'</span></p></div>') );
+        $output.append( $('<div class="desc-button" title="განმარტება"><span class="glyphicon glyphicon-question-sign icon-open"></span><span class="glyphicon glyphicon-remove icon-close"></span></div>') );
+        $output.append( $('<div class="desc-box"><div class="desc-box-inner"><strong class="desc-title">ბილეთის განმარტება: <a class="ticket-page-link" href="/tickets?ticket='+ticket.id+'">ბილეთის გვერდი <span class="glyphicon glyphicon-chevron-right icon-open"></span></a></strong>'+ticket.desc+'<div class="ticket-link">ბმული ბილეთზე: <input type="text" value="http://teoria.on.ge/tickets?ticket='+ticket.id+'" class="form-control input-sm ticket-link-input" readonly="readonly"></div></div></div>') );
+        $output.append($answers);
+        
+        return $output.outerHTML();
+    }
+
+
+
+
+    function do_answer(answer_id) {
+
+        if (answer_id == undefined) {
+            /* check if any answer is selected */
+            var selected_answer = $('p.ans-selected');
+            if (selected_answer.length > 0) {
+                answer_id = parseInt($(selected_answer).find('span.t-a-num span').html());
+            } else {
+                return;
+            }
+        }
+
+        var question_id = current_question_index++;
+        var updateJson = Controller.mainMethod.newFromOld(userTestJson, question_id, answer_id);
+        userTestJson = updateJson;
+        var answer_is_correct = (Controller.mainMethod.jsonForServer[question_id].answers[answer_id]['real_id'] == Controller.mainMethod.jsonForServer[question_id].correct_answer);
+
+        var question_td = $('#question-bullets-td').find('[data-question="'+question_id+'"]');
+
+        if (answer_is_correct == true) {
+            correct_answers++;
+            $('span#true').html(correct_answers);
+            question_td.attr('class', 'bullet-true');
+        } else {
+            mistakes++;
+            $('span#false').html(mistakes);
+            question_td.attr('class', 'bullet-false');
+        }
+        
+        var tooltipTicket = {};
+        $.extend(tooltipTicket, Controller.mainMethod.jsonForServer[question_id]);
+        $.each(tooltipTicket.answers, function(key, val){
+            if( val.real_id == tooltipTicket.correct_answer ){
+                val.correct = true;
+            }
+            if( val.real_id != tooltipTicket.correct_answer && tooltipTicket.user_answer == key ){
+                val.wrong = true;
+            }
+        });
+        
+        
+        var $TTContent = $(getTicketHTML(tooltipTicket, 'small', false));
+        question_td.tooltipster({
+            content : $TTContent,
+            delay : 0,
+            interactive : true,
+            interactiveTolerance : 200,
+            onlyOne : true,
+            speed : 200,
+            functionReady : function(origin, tooltip){
+                if( tooltip.find(".ans-false").length > 0 && tooltip.find(".desc-opened").length == 0 && tooltip.find(".desc-closed-once").length == 0 && initExamLocale == 'ka' ){
+                    tooltip.find(".desc-button").click();
+                }
+            }
+        });
+        
+        // re-enable
+        $('#auto-show-correct').prop("disabled", false);
+        
+
+        $('#ticket-number-now').html(current_question_index);
+
+        $('#question-bullets-td').find('[data-question="'+current_question_index+'"]').attr('class', 'bullet-current');
+
+        if (current_question_index < userTestJson.length) {
+            generateQuestions(updateJson, current_question_index);
+        } else {
+            endExam();
+        }
+    }
+
+
+    function auto_answer_is_on() {
+        return $('#auto-next-step:checked').length;
+    }
+    function show_correct_is_on() {
+        return $('#auto-show-correct:checked').length;
+    }
+    
+
+
+    function endExam() {
+        
+        $('.questions-running-wrapper').fadeOut("fast");
+        $('#exam_end').fadeIn("fast", function(){
+            init_admixer_ads(true);
+        });
+        
+        $('span#true').html(correct_answers);
+        $('span#false').html(mistakes);
+        $('#ticket-number-now').html(current_question_index);
+        $('.share-buttons-wrapper > span').html('');
+
+        var message = '';
+        var end_success = false;
+        if (Math.ceil((mistakes/current_question_index)*100) > 10) {
+            message = 'ამ შედეგით მართვის მოწმობას ვერ აიღებდით... სცადეთ კიდევ ერთხელ, ყველაფერი გამოგივათ!';
+        } else {
+            message = 'გილოცავთ! ახლა რომ ნამდვილ გამოცდას აბარებდეთ, თეორია მოშორებული გექნებოდათ.';
+            end_success = true;
+        }
+        $('.test-result-message').html(message);
+        
+        gtag('event', 'level_end', {
+            'event_category': 'level_end',
+            'level_name': 'Teoria Exam',
+            'success': end_success
+        });
+
+        clearInterval(timer);
+
+        //var bullets = $('.questions-bullet-table').html();
+        $('#exam_end .questions-bullet-table').after($('.questions-bullet-table')).remove();
+        $('.questions-bullet-table').find("td.bullet-true, td.bullet-false").tooltipster('reposition');
+        $('#exam_end #timer').html($('.questions-running-wrapper #timer').html());
+        $('#exam_end #ticket-number').html($('.questions-running-wrapper #ticket-number').html());
+
+        Controller.mainMethod.stopTest(count);
+    }
+
+
+
+
+    $("#question").on('click', '.t-answer', function() {
+        if( $(this).closest(".tooltipster-content").length > 0 ){
+            return;
+        }
+        if( $(this).is(".ans-empty") ){
+            return;
+        }
+        var answer_id = parseInt($(this).find('span.t-a-num span').html());
+        if (auto_answer_is_on()) {
+            do_answer(answer_id);
+        } else {
+            select_answer(this);
+        }
+    });
+
+
+    function select_answer(jquery_object) {
+
+        if (jquery_object != undefined && jquery_object.length > 0 && jquery_object.html() == '') {
+            return;
+        }
+        
+        var $thisAns = $(jquery_object);
+        var $quest = $thisAns.closest(".ticket-container");
+        
+        // if answer is olready selected AND correct is shown, don't allow changing it
+        if( $quest.find(".ans-selected").length > 0 && show_correct_is_on() ){
+            return;
+        }
+        
+        $('.t-answer', $quest).removeClass("ans-selected ans-false ans-true");
+        
+        
+        // disable show_correct while selected, untill the next question is poped
+        $('#auto-show-correct').prop("disabled", true);
+        
+        // select
+        $thisAns.addClass('ans-selected');
+        
+        if( show_correct_is_on() ){
+            
+            if( isset($thisAns.attr("data-is-correct-list")) ){
+                $thisAns.addClass("ans-true");
+            } else {
+                $('.t-answer[data-is-correct-list]', $quest).addClass("ans-true");
+                $thisAns.addClass("ans-false");
+            }
+        }
+    }
+
+    
+    
+    $("#auto-show-correct").change(function(){
+        var $autoNextInput = $("#auto-next-step");
+        if ( $(this).is(":checked") ) {
+            $autoNextInput.checked(false);
+        }
+        saveExamSettings();
+    });
+    $("#auto-next-step").change(function(){
+        var $autoShowInput = $("#auto-show-correct");
+        if( $(this).is(":checked") ){
+            $autoShowInput.checked(false);
+        }
+        saveExamSettings();
+    });
+
+    
+    $("#question-quantity").change(function(){
+        checkStartScreen();
+    });
+
+
+    $(document).keyup(function(event) {
+        var keyPressed = event.keyCode;
+        if (keyPressed-96 > 0 && keyPressed-96 < 5) {
+            keyPressed = keyPressed - 96;
+        } else if (keyPressed-48 > 0 && keyPressed-48 < 5) {
+            keyPressed = keyPressed - 48;
+        } else {
+            keyPressed = undefined;
+        }
+
+        if (keyPressed != undefined) {
+            var $thisAnswer = $('p.t-answer-'+keyPressed);
+            if( $thisAnswer.find(".t-answer-inner").length > 0 ){
+                if (auto_answer_is_on()) {
+                    do_answer(keyPressed);
+                } else {
+                    select_answer($thisAnswer);
+                }
+            }
+        }
+
+
+        /* escape case */
+        if (event.keyCode == 27) {
+            $('p.t-answer').removeClass('ans-selected');
+        }
+
+        /* space case */
+        if (event.keyCode == 32) {
+            if( $(".questions-running-wrapper").is(":visible") ){
+                $('.omit-button').click();
+                return false;
+            }
+        }
+
+        /* enter case */
+        if (event.keyCode == 13) {
+            if( $(".questions-running-wrapper").is(":visible") ){
+                do_answer();
+            } else if ( $(".start-page").is(":visible") ){
+                $("#start").click();
+            }
+            
+        }
+    });
+    $(document).keydown(function(event) {
+        /* cancel default: space case */
+        if (event.keyCode == 32) {
+            if( $(".questions-running-wrapper").is(":visible") ){
+                return false;
+            }
+        }
+    });
+
+    $('.next-button').click(function() {
+        do_answer();
+    })
+
+    $('.omit-button').click(function() {
+        userTestJson = Controller.mainMethod.swapWithLast(current_question_index, userTestJson);
+        $('p.t-answer').removeClass('ans-selected');
+        
+        var $newHtml = $(getTicketHTML(userTestJson[current_question_index], TICKET_SIZE)).hide();
+        $("#question .ticket-container").animate({
+            top:500,
+            opacity:0
+        }, 300, "swing", function(){
+            $(this).remove();
+            $("#question").append($newHtml);
+            adjustTicketFontSize($newHtml);
+            $newHtml.fadeIn("fast");
+        });
+        
+    });
+
+
+    $('#stop-test').click(function() {
+        if(confirm('დარწმუნებული ხართ, რომ გსურთ გამოცდის შეწყვეტა?')){
+            endExam();
+        }
+    });
+
+
+    $(".stop").click(function () {
+        clearInterval(timer);
+        count = 0;
+    });
+}); 

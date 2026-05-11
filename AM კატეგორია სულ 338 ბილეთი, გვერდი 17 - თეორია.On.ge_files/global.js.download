@@ -1,0 +1,320 @@
+// server time
+setInterval(function () {
+    SERVER_TIMESTAMP++;
+}, 1000);
+
+$.cookie.json = true;
+var Controller = Controller || {};
+var is_mobile = (/iPhone|iPod|iPad|Android|BlackBerry/).test(navigator.userAgent);
+var TEORIA_SETTINGS = {
+    category: 2,
+    locale: 'ka',
+    skin: 'dark',
+    user: USER_ID
+};
+var init_admixer_ads;
+
+
+function saveTeoriaSettings(o) {
+    TEORIA_SETTINGS.created = SERVER_TIMESTAMP;
+    $.cookie('exam-settings', $.extend(TEORIA_SETTINGS, o), {expires: 365, path: '/'});
+}
+function getTeoriaSettings() {
+    return $.extend(TEORIA_SETTINGS, $.cookie('exam-settings'));
+}
+
+function insert_string(source_string, index, inserted_string) {
+  if (index > 0) {
+    return source_string.substring(0, index) + inserted_string + source_string.substr(index);
+  }
+  return inserted_string + source_string;
+}
+
+
+function changeFontSize($el, amount) {
+    var curr = parseInt($el.css("font-size"));
+    if (curr) {
+        curr = curr + amount;
+        $el.css("font-size", curr + "px");
+        return $el;
+    }
+    return false;
+}
+function adjustTicketFontSize($ticket) {
+    var aMaxHeight = $ticket.find(".t-answer-1 .text-wrap").height();
+    var qMaxHeight = $ticket.find(".t-question-inner").height();
+    var $answers = $ticket.find(".t-answer .text-wrap");
+    var $question = $ticket.find(".t-question .text-wrap");
+
+    var iterations = $ticket.is(".cutoff-1") ? 1 : 2;
+
+    var aMaxNewHeight = 0;
+    var doneAnswers = false;
+    var doneQuestion = false;
+    for (var i = 1; i <= iterations; i++) {
+        if (!doneAnswers) {
+            aMaxNewHeight = 0;
+            $answers.each(function () {
+                var $this = $(this);
+                changeFontSize($this, +1);
+                var newHeight = $this.height();
+                if (aMaxNewHeight < newHeight) {
+                    aMaxNewHeight = newHeight;
+                }
+            });
+            if (aMaxNewHeight > aMaxHeight) {
+                $answers.each(function () {
+                    changeFontSize($(this), +1);
+                });
+                doneAnswers = true;
+            }
+        }
+        if (!doneQuestion) {
+            changeFontSize($question, +1);
+            if ($question.height() > qMaxHeight) {
+                changeFontSize($question, -1);
+                doneQuestion = true;
+            }
+        }
+    }
+}
+function onMainFontsLoaded() {
+    $(document).ready(function () {
+        $(".ticket-container").each(function () {
+            adjustTicketFontSize($(this));
+        });
+    });
+}
+FontFaceOnload("BPG Rioni", {
+    success: function () {
+        onMainFontsLoaded();
+        //document.getElementById("font-face-on-load-div").style.display = "none";
+    },
+    error: function () {
+    }
+});
+
+
+$(document).ready(function(){
+    
+    //
+    // ads
+    //
+        
+    // handle t-05
+    var $container = $("body > .content-wrapper > .container:first"),
+        $ad_1 = $(".pivot-banner-t05.pivot-banner-t05-left"),
+        $ad_2 = $(".pivot-banner-t05.pivot-banner-t05-right");
+
+    if($(window).width() > 1050 && $container.length && $ad_1.length && $ad_2.length) {
+        
+        $ad_1.css({position:'absolute',top:'15px',left:'-130px'});
+        $ad_2.css({position:'absolute',top:'15px',right:'-130px'});
+        $container.css("position", "relative");
+        $container.parent().css("overflow", "hidden");
+        
+        $ad_1.show();
+        $ad_2.show();
+    }
+    
+    $("body").on("pivot:finished", function(){
+        // handle t-06
+        var $hero = $(".hero-front");
+        if($hero.length && $hero.find(".pivot-rendered").length){
+            $hero.addClass("with-ad");
+        }
+        
+    }).ongePivot({
+        "layout": "desktop",    // always desktop here
+        "bg_slot_top_offset": 40
+    });
+    
+    
+    //
+    // Admixer Ads
+    //
+    init_admixer_ads = function(parse_delayed) {
+        var admixer_ads = [];
+        var delayed = parse_delayed ? ".admixer-ad-delayed" : ":not(.admixer-ad-delayed)";
+        $(".admixer-ad"+delayed).each(function(){
+            var $ad = $(this);
+            var ad_id = $ad.attr("id");
+            var hash = ad_id.split("_")[1];
+            hash = insert_string(hash, 8, "-");
+            hash = insert_string(hash, 13, "-");
+            hash = insert_string(hash, 18, "-");
+            hash = insert_string(hash, 23, "-");
+            
+            admixer_ads.push({
+                $el : $ad,
+                ad_id : ad_id,
+                hash : hash
+            });
+        });
+        if(admixer_ads.length > 0) {
+            $.each(admixer_ads, function(k, v) {
+                (window.globalAmlAds = window.globalAmlAds || []).push(function() {
+                    globalAml.defineSlot({
+                        z: v.hash,
+                        ph: v.ad_id,
+                        i: 'inv-nets',
+                        s:'22268b83-ab3e-4b1f-93f6-5bae4346101c',
+                        sender: 'admixer'
+                    });
+                });
+            });
+            (window.globalAmlAds = window.globalAmlAds || []).push(function() {
+                globalAml.singleRequest("admixer");
+                console.log("single request");
+            });
+            
+            $.each(admixer_ads, function(k, v) {
+                (window.globalAmlAds = window.globalAmlAds || []).push(function() {
+                    globalAml.display(v.ad_id);
+                    console.log("display ", v.ad_id);
+                });
+            });
+        }
+    }
+    init_admixer_ads(false);
+    
+});
+
+
+Controller.mainMethod = {
+    hostName: "",
+    timer: {},
+    timerTime: 0,
+    jsonForServer: {},
+    userTestJson: {},
+    uniq_id: '',
+    cat_id: '',
+    topics: '',
+    all_questions: false,
+    hash: '',
+
+    startTest: function (categoryID, limit, token, topics, all_questions) {
+
+        this.hash = '';
+        this.userTestJson = {};
+        this.jsonForServer = {};
+        this.uniq_id = '';
+        this.cat_id = '';
+        this.topics = '';
+        this.all_questions = false;
+
+        return $.ajax({
+            url: this.hostName + "/tickets",
+            type: "POST",
+            data: {
+                "cat_id": categoryID,
+                "limit": limit,
+                "log_token": token,
+                "topics": topics,
+                "all_questions": all_questions
+            }
+        });
+    },
+
+    newFromOld: function (jsonNow, questionID, answerID) {
+        this.jsonForServer[questionID] = jsonNow[questionID];
+        this.jsonForServer[questionID]['user_answer'] = parseInt(answerID.toString());
+        delete jsonNow[questionID];
+        this.userTestJson = jsonNow;
+        return jsonNow;
+    },
+
+    updateSocialLinks: function social_buttons(hash, questioins_amount, correct_answers_amount) {
+
+        var title = 'ჩემი მართვის მოწმობის გამოცდა - ' + questioins_amount + ' კითხვიდან ავიღე ' + correct_answers_amount;
+
+        stWidget.addEntry({
+            "service": "facebook",
+            "element": $('.sharethis_fb')[0],
+            "url": "http://teoria.on.ge/tests/history/" + hash,
+            "title": title,
+            "type": "large",
+            "text": "facebook"
+        });
+        stWidget.addEntry({
+            "service": "twitter",
+            "element": $('.sharethis_tw')[0],
+            "url": "http://teoria.on.ge/tests/history/" + hash,
+            "title": title,
+            "type": "large",
+            "text": "twiter"
+        });
+        stWidget.addEntry({
+            "service": "googleplus",
+            "element": $('.sharethis_gp')[0],
+            "url": "http://teoria.on.ge/tests/history/" + hash,
+            "title": title,
+            "type": "large",
+            "text": "googleplus"
+        });
+        stWidget.addEntry({
+            "service": "linkedin",
+            "element": $('.sharethis_in')[0],
+            "url": "http://teoria.on.ge/tests/history/" + hash,
+            "title": title,
+            "type": "large",
+            "text": "linkedin"
+        });
+        stWidget.addEntry({
+            "service": "pinterest",
+            "element": $('.sharethis_pn')[0],
+            "url": "http://teoria.on.ge/tests/history/" + hash,
+            "title": title,
+            "type": "large",
+            "text": "pinterest"
+        });
+        stWidget.addEntry({
+            "service": "odnoklassniki",
+            "element": $('.sharethis_ok')[0],
+            "url": "http://teoria.on.ge/tests/history/" + hash,
+            "title": title,
+            "type": "large",
+            "text": "ok"
+        });
+    },
+
+    stopTest: function (time) {
+        var jsonToString = JSON.stringify(this.jsonForServer);
+
+        this.jsonForServer.time = time;
+        $.ajax({
+            url: this.hostName + "/save",
+            type: "POST",
+            data: {
+                "question_state": jsonToString,
+                "time": time,
+                "cat_id": this.cat_id,
+                "pub_result": this.challenge,
+                "req_id": this.uniq_id
+            },
+            context: this
+        }).done(function (data) {
+
+            this.hash = data;
+            questions_amount = 0;
+            corrent_answers_amount = 0;
+            for (key in this.jsonForServer) {
+                questions_amount++;
+                if (parseInt(this.jsonForServer[key]['correct_answer']) == parseInt(this.jsonForServer[key]['user_answer'])) {
+                    corrent_answers_amount++;
+                }
+            }
+            this.updateSocialLinks(data, questions_amount, corrent_answers_amount);
+            $(".results-final-link").attr("href", "/tests/history/" + data);
+        });
+    },
+    swapWithLast: function (current_index, jsonNow) {
+
+        var spliced = jsonNow.splice(current_index, 1);
+        jsonNow.push(spliced[0]);
+
+        this.userTestJson = jsonNow;
+
+        return jsonNow;
+    }
+};

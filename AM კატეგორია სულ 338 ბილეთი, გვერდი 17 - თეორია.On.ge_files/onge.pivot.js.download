@@ -1,0 +1,362 @@
+
+/*
+    To render desktop ads:
+    
+    $("body").ongePivot("desktop");
+    
+    Ad slots should look like this:
+    
+    <div class="pivot pivot-desktop" data-slot="#D-45"></div>
+    
+    Slots can have multiple layout classes, to be displayed in multiple layouts:
+    
+    <div class="pivot pivot-desktop pivot-mobile" data-slot="#D-05"></div>
+    (this is the case when the same banner (incl. size) is used for both platforms)
+    
+    If pivot slot has a wrapper that should be hidden when there is no banner, add
+    .pivot-wrapper class to it. like this:
+        
+        <div class="pivot-wrapper x-padding-half-top">
+            <div class="pivot pivot-desktop" data-slot="#DM-01-HOME"></div>
+        </div>
+    
+    == on new site: ==
+    
+    1. hide all .pivot's and .pivot-wrapper's with css.
+    2. body will have .has-pivot-bg-slot when bg-ad is displayed, act accordingly.
+    
+*/
+(function ( $ ) {
+ 
+    $.fn.ongePivot = function( options ) {
+ 
+        var settings = $.extend({
+            layout: "desktop",
+            api_url: "https://pivot.on.ge/public/get.php?ids=",
+            bg_slot_top_offset: 0     // top: value for bg-banner fixed container
+        }, options );
+        
+        var $scope = this;
+    
+        settings.slot_ids = {
+            "#DM-01-HOME": 17,
+            "#DM-01-HOME-MOBILE": 43,
+            "#DM-01-ARTICLE": 7,
+            "#GN-04": 37,
+            "#T-06": 29,
+            "#GN-06-MOBILE": 52,
+            "#SP-SPONSOR": 42,
+            "#GN-01": 34,
+            "#T-03": 26,
+            "#GN-05": 38,
+            "#T-07": 30,
+            "#SP-SPONSOR-MOBILE": 53,
+            "#GN-02": 35,
+            "#T-04": 27,
+            "#GN-01-MOBILE": 47,
+            "#GN-06": 39,
+            "#T-08": 31,
+            "#T-01": 24,
+            "#GN-03": 36,
+            "#T-05": 28,
+            "#GN-03-MOBILE": 49,
+            "#GN-BG": 40,
+            "#T-09": 32,
+            "#T-02": 25,
+            "#DM-01-ARTICLE-MOBILE": 45,
+            "#DM-07-HOME": 15,
+            "#DM-07-HOME-MOBILE": 44,
+            "#DM-07-ARTICLE": 6,
+            "#DM-07-ARTICLE-MOBILE": 46,
+            "#D-02": 23,
+            "#D-03": 12,
+            "#D-04": 14,
+            "#D-05": 10,
+            "#D-06": 16,
+            "#D-08": 4,
+            "#D-09": 11,
+            "#D-10": 19,
+            "#D-11": 8,
+            "#D-12": 13,
+            "#M-13": 18,
+            "#M-14": 5,
+            "#M-15": 2,
+            "#M-16": 9,
+            "#D-BG-HOME": 20,
+            "#D-BG-ARTICLE": 21
+        };
+        
+        
+        // gather slots
+        
+        var slots = {};
+        var slot_ids_for_query = [];
+        $scope.find(".pivot.pivot-"+settings.layout).each(function(){
+            
+            var $this_slot = $(this);
+            var this_slot_key = $this_slot.attr("data-slot");
+            var this_slot_id = settings.slot_ids[this_slot_key];
+            
+            if(typeof this_slot_key == 'undefined' || typeof this_slot_id == 'undefined') {
+                return true;
+            }
+            
+            slots[this_slot_id] = {
+                'id' : this_slot_id,
+                '$element' : $(".pivot[data-slot='"+this_slot_key+"']") // to render all same-id'd slots the same
+            };
+            if( slot_ids_for_query.indexOf(this_slot_id) < 0 ) {
+                slot_ids_for_query.push(this_slot_id);
+            }
+            
+        });
+        
+        // continue with api call if we have eligible slots
+        
+        if( 0 && slot_ids_for_query.length ) {
+            
+            slot_ids_for_query = slot_ids_for_query.join(",");
+            var api_url = settings.api_url + slot_ids_for_query;
+            
+            $.get(api_url, function(data){
+                pivot_populate(data);
+            });
+            
+        }
+        
+        
+        // populate function
+        
+        var pivot_populate = function(data) {
+            
+            if(typeof data == 'undefined') {
+                return false;
+            }
+            
+            // loop through slots
+            $.each(slots, function(this_slot_id, this_slot){
+                
+                var slot_banner = data[this_slot_id];
+                
+                if(typeof slot_banner == 'undefined' || $.isEmptyObject(slot_banner)) {
+                    return true;
+                }
+                
+                var banner_rendered = pivot_render_banner(slot_banner, this_slot);
+                
+                // add default styles to slot
+                banner_rendered.container_css = $.extend({
+                    "display": "block",
+                    "margin-left": "auto",
+                    "margin-right": "auto",
+                    "width": slot_banner.width,
+                    "height": slot_banner.height
+                }, banner_rendered.container_css);
+                
+                this_slot.$element.append(banner_rendered.html);
+                this_slot.$element.css(banner_rendered.container_css);
+                this_slot.$element.show();
+                this_slot.$element.addClass("pivot-rendered");
+                
+                // hide T-05 for now                
+                if(settings.slot_ids['#T-05'] == this_slot_id) {
+                    this_slot.$element.hide();
+                }
+                
+                pivot_show_hide_wrapper(this_slot.$element, "show");
+                
+            });
+            
+            pivot_finished();
+        }
+        
+        
+        
+        // render function
+        
+        var pivot_render_banner = function(banner_obj, slot) {
+            
+            var html = '';
+            var container_css = {};
+            
+            if(banner_obj.width > 5000){
+                // dirty fix for teoria, should think of something better
+                banner_obj.width = 970;
+            }
+                
+            if( banner_obj.custom_code != '' ) {
+                
+                // that's just custom code. print it now. it has clicktag url replaced by server
+                // custom code overrides all other formats, so if we have this, just skip any other render variants.
+                
+                // clean from safe transfer replacements
+                html = banner_obj.custom_code;
+                html = html.replace('|[[[[[', '<');
+                html = html.replace(']]]]]|', '>');
+                html = html.replace('|||||', 'script');
+                
+            
+            } else if( banner_obj.file_banner != '' && (banner_obj.file_ext == 'html' || banner_obj.file_ext == 'htm') ) {
+                
+                // printing HTML banner in an iframe
+                
+                html = '<iframe id="on-pvt-bnr-'+banner_obj.id+'" name="on-pvt-bnr-frame-'+banner_obj.id+'" width="'+banner_obj.width+'" height="'+banner_obj.height+'" frameborder="0" src="'+banner_obj.file_banner+'" marginwidth="0" marginheight="0" vspace="0" hspace="0" allowtransparency="true" scrolling="no" allowfullscreen="true"></iframe>';
+                
+                if( banner_obj.link != '' ) {
+                    
+                    // we have a link too
+                    
+                    html = pivot_link_iframe(html, banner_obj);
+                    
+                }
+                
+            } else if( banner_obj.file_banner != '' ) {
+                
+                // it's just regular image banner
+                
+                html = '<img src="'+banner_obj.file_banner+'" width="'+banner_obj.width+'" height="'+banner_obj.height+'" alt="" style="display:block">';
+                
+                if( banner_obj.link != '' ) {
+                    
+                    // we have a link
+                    html = '<a href="'+banner_obj.link+'" target="_blank">'+html+'</a>';
+                    
+                }
+                
+            }
+            
+            
+            // make bg-banner
+            
+            if(html != '' && banner_obj.type == 'bg') {
+                
+                $("body").addClass("has-pivot-bg-slot");
+                
+                container_css["position"] = "fixed";
+                container_css["top"] = settings.bg_slot_top_offset;
+                container_css["left"] = 0;
+                container_css["width"] = "100%";
+                container_css["height"] = banner_obj.height;
+                container_css["overflow"] = "hidden";
+                
+                var $bg_banner_wrap = $('<div class="pivot-bg-banner-wrap"></div>');
+                $bg_banner_wrap.append(html);
+                
+                $bg_banner_wrap.css({
+                    "position": "absolute",
+                    "top": 0,
+                    "left": "50%",
+                    "bottom": 0,
+                    "width": banner_obj.width,
+                    "margin-left": 0 - Math.round(banner_obj.width / 2)
+                });
+                
+                html = $("<div>").append($bg_banner_wrap.eq(0)).html();
+                
+            }
+            
+            
+            // load the tracking pixel if we have one
+            
+            if( banner_obj.tracking_pixel != '' ) {
+                
+                // cache buster
+                var cache_date = new Date();
+                var cache_buster = Math.random() + '' + cache_date.getTime() + '' + Math.random();
+                var pixel_url = banner_obj.tracking_pixel;
+                
+                pixel_url += (pixel_url.indexOf('?') >= 0 ? '&' : '?') + 'cache_buster='+cache_buster;
+                
+                var $pixel = $('<img src="'+pixel_url+'">');
+                
+            }
+            
+            return {
+                'html' : html,
+                'container_css' : container_css
+            };
+            
+        }
+        
+        
+        
+        // link iframe
+        
+        var pivot_link_iframe = function(iframe, banner_obj) {
+            
+            var $iframe_link_wrap_iframe = $(iframe);
+            var $iframe_link_wrap = $('<div class="pivot-iframe-linked" style="width: '+banner_obj.width+'px; height: '+banner_obj.height+'px; position: relative;"></div>');
+            $iframe_link_wrap_iframe.css({
+                "display" : "block",
+                "position" : "absolute",
+                "top" : 0,
+                "left" : 0,
+                "z-index" : 1
+            });
+            $iframe_link_wrap.append($iframe_link_wrap_iframe);
+            $iframe_link_wrap.append('<a href="'+banner_obj.link+'" target="_blank" style="display: block; position: absolute; text-indent: -99999px; top: 0; left: 0; right: 0; bottom: 0; z-index: 2;" class="pivot-iframe-linked-link">-</a>');
+            
+            return $("<div>").append($iframe_link_wrap.eq(0)).html();
+            
+        }
+        
+        
+        
+        // helper to show/hide the slot wrapper
+        
+        var pivot_show_hide_wrapper = function($element, action) {
+
+            var $parent = $element.parent();
+            if( $parent.length && $parent.hasClass("pivot-wrapper") ){
+                if(action == 'show') {
+                    $parent.show();
+                } else {
+                    $parent.hide();
+                }
+            }
+        }
+        
+        
+        
+        // finish function
+        
+        var pivot_finished = function(){
+            
+            // hide all un-rendered slots
+            //$scope.find(".pivot:not(.pivot-rendered)").hide().each(function(){
+                //pivot_show_hide_wrapper($(this), "hide");
+            //});
+            
+            $("body").trigger("pivot:finished");
+            
+        }
+        
+    };
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+}( jQuery ));
