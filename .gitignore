@@ -1,0 +1,10 @@
+# Original browser "Save Page As -> complete" dump.
+AM კატეგორია სულ 338 ბილეთი, გვერდი 17 - თეორია.On.ge.html
+AM კატეგორია სულ 338 ბილეთი, გვერდი 17 - თეორია.On.ge_files/
+
+# Local rebuild helper, not needed by the deployed static site.
+build-offline-viewer.mjs
+
+# OS/editor noise.
+.DS_Store
+Thumbs.db
