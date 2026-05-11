@@ -6,6 +6,7 @@
   const paginationBottomEl = document.querySelector("#pagination-bottom");
   const ticketsEl = document.querySelector("#tickets");
   const titleEl = document.querySelector("#page-title");
+  const darkModeToggle = document.querySelector("#dark-mode-toggle");
   const TOPIC_PAGE_SIZE = 20;
   let activeTopic = "all";
   let activePage = "1";
@@ -418,6 +419,22 @@
   readState();
   normalizeUrlPath();
   setupScrollTopButton();
+  
+  // Initialize dark mode
+  const isDarkMode = localStorage.getItem("dark-mode") === "true";
+  if (isDarkMode) {
+    document.body.classList.add("dark-mode");
+    darkModeToggle?.classList.add("active");
+    darkModeToggle && (darkModeToggle.querySelector(".toggle-icon").textContent = "☀️");
+  }
+  
+  darkModeToggle?.addEventListener("click", () => {
+    const isNowDark = document.body.classList.toggle("dark-mode");
+    darkModeToggle.classList.toggle("active");
+    darkModeToggle.querySelector(".toggle-icon").textContent = isNowDark ? "☀️" : "🌙";
+    localStorage.setItem("dark-mode", isNowDark);
+  });
+  
   render();
   window.addEventListener("hashchange", () => {
     readState();
