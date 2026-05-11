@@ -18,6 +18,17 @@
     activePage = state.get("page") || "1";
   }
 
+  function appPath() {
+    return location.pathname.replace(/\/index\.html$/i, "/") || "/";
+  }
+
+  function normalizeUrlPath() {
+    const cleanPath = appPath();
+    if (cleanPath !== location.pathname) {
+      history.replaceState(null, "", `${cleanPath}${location.hash || ""}`);
+    }
+  }
+
   function stateHref(topic = activeTopic, page = activePage) {
     const params = new URLSearchParams();
     if (topic !== "all") {
@@ -28,7 +39,7 @@
     }
 
     const hash = params.toString();
-    return `${location.pathname}${hash ? `#${hash}` : ""}`;
+    return `${appPath()}${hash ? `#${hash}` : ""}`;
   }
 
   function shouldHandleNavigation(event) {
@@ -261,33 +272,46 @@
     });
 
     container.querySelector(".paginator-select")?.addEventListener("mousedown", (event) => {
-      if (event.button === 1) {
-        event.preventDefault();
-        window.open(stateHref(activeTopic, event.currentTarget.value), "_blank", "noopener");
+      if (event.button !== 1) {
+        return;
       }
-    });
 
-    container.querySelector(".paginator-select")?.addEventListener("auxclick", (event) => {
-      if (event.button === 1) {
-        event.preventDefault();
-        window.open(stateHref(activeTopic, event.currentTarget.value), "_blank", "noopener");
-      }
+      event.preventDefault();
+
+      const page = event.currentTarget.value;
+      window.open(stateHref(activeTopic, page), "_blank", "noopener");
     });
 
     container.querySelector(".goto-ticket")?.addEventListener("submit", (event) => {
       event.preventDefault();
-      const id = new FormData(event.currentTarget).get("ticket");
-      const ticket = byId.get(String(id || "").trim());
-      if (!ticket) {
+
+      const id = String(new FormData(event.currentTarget).get("ticket") || "").trim();
+      if (!id) {
         return;
       }
 
-      activeTopic = "all";
-      activePage = ticket.allPage || "1";
+      const ticketsInCurrentTopic = topicTickets(activeTopic);
+      const index = ticketsInCurrentTopic.findIndex((ticket) => String(ticket.id) === id);
+
+      if (index === -1) {
+        return;
+      }
+
+      if (activeTopic === "all") {
+        const ticket = ticketsInCurrentTopic[index];
+        activePage = ticket.allPage || "1";
+      } else {
+        activePage = String(Math.floor(index / TOPIC_PAGE_SIZE) + 1);
+      }
+
       normalizeState();
       history.replaceState(null, "", stateHref());
       render();
-      document.getElementById(`ticket-${ticket.id}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+
+      document.getElementById(`ticket-${id}`)?.scrollIntoView({
+        block: "start",
+        behavior: "smooth"
+      });
     });
   }
 
@@ -373,6 +397,7 @@
 
   renderTopics();
   readState();
+  normalizeUrlPath();
   setupScrollTopButton();
   render();
   window.addEventListener("hashchange", () => {
