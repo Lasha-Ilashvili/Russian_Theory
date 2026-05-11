@@ -81,6 +81,32 @@
     }
   }
 
+  function prepareAnswerControls(ticketEl) {
+    ticketEl.querySelectorAll(".t-answer:not(.ans-empty) .t-answer-inner").forEach((inner) => {
+      inner.addEventListener("click", () => {
+        if (ticketEl.classList.contains("answer-answered")) {
+          return;
+        }
+
+        const answer = inner.closest(".t-answer");
+        if (!answer) {
+          return;
+        }
+
+        if (answer.hasAttribute("data-is-correct-list")) {
+          answer.classList.add("ans-true");
+        } else {
+          ticketEl.querySelectorAll(".t-answer[data-is-correct-list]").forEach((correctAnswer) => {
+            correctAnswer.classList.add("ans-true");
+          });
+          answer.classList.add("ans-false");
+        }
+
+        ticketEl.classList.add("answer-answered");
+      });
+    });
+  }
+
   function topicTickets(topicId) {
     if (topicId === "all") {
       return data.tickets;
@@ -245,6 +271,7 @@
 
     ticketsEl.querySelectorAll(".ticket-container").forEach((ticketEl) => {
       prepareTicketControls(ticketEl);
+      prepareAnswerControls(ticketEl);
       applyTranslation(ticketEl);
     });
   }

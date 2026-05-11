@@ -149,6 +149,23 @@ body {
   display: block;
 }
 
+.ticket-container .t-answer.ans-true .t-answer-inner .t-a-num:before,
+.ticket-container .t-answer.ans-false .t-answer-inner .t-a-num:before {
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.ticket-container .t-answer.ans-true .t-answer-inner .t-a-num:before {
+  content: "\2713";
+  font-size: 28px;
+}
+
+.ticket-container .t-answer.ans-false .t-answer-inner .t-a-num:before {
+  content: "\00d7";
+  font-size: 32px;
+}
+
 .empty {
   padding: 50px 0;
   color: #8a8a8a;

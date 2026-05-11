@@ -593,6 +593,23 @@ async function writeViewerFiles() {
   display: block;
 }
 
+.ticket-container .t-answer.ans-true .t-answer-inner .t-a-num:before,
+.ticket-container .t-answer.ans-false .t-answer-inner .t-a-num:before {
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.ticket-container .t-answer.ans-true .t-answer-inner .t-a-num:before {
+  content: "\\2713";
+  font-size: 28px;
+}
+
+.ticket-container .t-answer.ans-false .t-answer-inner .t-a-num:before {
+  content: "\\00d7";
+  font-size: 32px;
+}
+
 .empty {
   padding: 50px 0;
   color: #8a8a8a;
@@ -705,6 +722,32 @@ async function writeViewerFiles() {
         ticketEl.classList.toggle("desc-opened");
       });
     }
+  }
+
+  function prepareAnswerControls(ticketEl) {
+    ticketEl.querySelectorAll(".t-answer:not(.ans-empty) .t-answer-inner").forEach((inner) => {
+      inner.addEventListener("click", () => {
+        if (ticketEl.classList.contains("answer-answered")) {
+          return;
+        }
+
+        const answer = inner.closest(".t-answer");
+        if (!answer) {
+          return;
+        }
+
+        if (answer.hasAttribute("data-is-correct-list")) {
+          answer.classList.add("ans-true");
+        } else {
+          ticketEl.querySelectorAll(".t-answer[data-is-correct-list]").forEach((correctAnswer) => {
+            correctAnswer.classList.add("ans-true");
+          });
+          answer.classList.add("ans-false");
+        }
+
+        ticketEl.classList.add("answer-answered");
+      });
+    });
   }
 
   function topicTickets(topicId) {
@@ -871,6 +914,7 @@ async function writeViewerFiles() {
 
     ticketsEl.querySelectorAll(".ticket-container").forEach((ticketEl) => {
       prepareTicketControls(ticketEl);
+      prepareAnswerControls(ticketEl);
       applyTranslation(ticketEl);
     });
   }
