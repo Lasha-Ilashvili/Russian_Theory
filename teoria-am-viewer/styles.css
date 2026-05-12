@@ -1,5 +1,6 @@
 body {
   margin: 0;
+  padding-top: 0 !important;
   background: #dbdbdb;
   color: #666;
   font-family: Arial, Helvetica, sans-serif;
@@ -40,6 +41,48 @@ body .container {
 .page-tickets-list .tickets-list.with-topics {
   width: 750px;
   float: right;
+}
+
+.viewer-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 0 0 10px;
+}
+
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border: 1px solid #d8d8d8;
+  border-radius: 999px;
+  background: #f4f4f4;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.language-option {
+  min-width: 44px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #6b6b6b;
+  font-weight: 700;
+  line-height: 32px;
+  transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.language-option:hover {
+  color: #333;
+}
+
+.language-option.active {
+  background: #535353;
+  color: #ffb83b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
 }
 
 .page-tickets-list .text-content h1 {
@@ -323,6 +366,24 @@ body .container {
     margin-bottom: 20px;
   }
 
+  .viewer-toolbar {
+    justify-content: space-between;
+    min-height: 40px;
+    margin-bottom: 14px;
+  }
+
+  .language-option {
+    min-width: 42px;
+    height: 30px;
+    line-height: 30px;
+  }
+
+  .dark-mode-toggle {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
   .ticket-container.ticket-container-small {
     width: 100%;
     height: auto;
@@ -347,21 +408,18 @@ body .container {
 
 /* Dark Mode Styles */
 .dark-mode-toggle {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 50px;
-  height: 50px;
-  border: 2px solid #ddd;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #ddd;
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 20px;
   transition: all 0.3s ease;
-  z-index: 999;
+  z-index: 30;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -394,6 +452,26 @@ body.dark-mode .container {
 
 body.dark-mode .tickets-cats-title {
   color: #d0d0d0;
+}
+
+body.dark-mode .language-switch {
+  background: #2c2c2c;
+  border-color: #4b4b4b;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+body.dark-mode .language-option {
+  color: #aeb4bc;
+}
+
+body.dark-mode .language-option:hover {
+  color: #f1f3f5;
+}
+
+body.dark-mode .language-option.active {
+  background: #4a4a4a;
+  color: #ffcf70;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 body.dark-mode .page-tickets-list .tickets-topics-list a {

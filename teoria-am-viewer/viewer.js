@@ -1,22 +1,88 @@
 (() => {
-  const data = window.TEORIA_AM_DATA || { tickets: [], topics: [] };
-  const translations = window.TEORIA_RU_TRANSLATIONS || {};
+  const datasets = {
+    ru: window.TEORIA_AM_DATA || { tickets: [], topics: [] },
+    ka: window.TEORIA_AM_DATA_KA || null
+  };
+  const ruTranslations = window.TEORIA_RU_TRANSLATIONS || {};
   const topicsEl = document.querySelector("#topics");
+  const topicsTitleEl = document.querySelector(".tickets-cats-title");
   const paginationTopEl = document.querySelector("#pagination-top");
   const paginationBottomEl = document.querySelector("#pagination-bottom");
   const ticketsEl = document.querySelector("#tickets");
   const titleEl = document.querySelector("#page-title");
   const darkModeToggle = document.querySelector("#dark-mode-toggle");
+  const languageSwitch = document.querySelector("#language-switch");
   const TOPIC_PAGE_SIZE = 20;
+  const LANGUAGE_STORAGE_KEY = "teoria-am-language";
+  const copyByLanguage = {
+    ru: {
+      all: "Все",
+      category: "AM категория",
+      chooseTopic: "Выберите тему:",
+      darkMode: "Переключить темный режим",
+      empty: "Ничего не найдено",
+      explanation: "Пояснение",
+      gotoButton: "Перейти",
+      gotoPlaceholder: "номер билета",
+      gotoTitle: "Введите номер билета",
+      next: "Следующая",
+      page: "страница",
+      previous: "Предыдущая",
+      ticketPlural: "билетов",
+      top: "Наверх",
+      total: "Всего"
+    },
+    ka: {
+      all: "ყველა",
+      category: "AM კატეგორია",
+      chooseTopic: "აირჩიეთ თემა:",
+      darkMode: "მუქი რეჟიმის გადართვა",
+      empty: "ვერაფერი მოიძებნა",
+      explanation: "განმარტება",
+      gotoButton: "გადასვლა",
+      gotoPlaceholder: "ბილეთის ნომერი",
+      gotoTitle: "შეიყვანეთ ბილეთის ნომერი",
+      next: "შემდეგი",
+      page: "გვერდი",
+      previous: "წინა",
+      ticketPlural: "ბილეთი",
+      top: "ზემოთ",
+      total: "სულ"
+    }
+  };
   let activeTopic = "all";
   let activePage = "1";
+  let activeLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY) || "ru";
+  if (!datasets[activeLanguage]) {
+    activeLanguage = "ru";
+  }
+  let data = datasets[activeLanguage];
+  let translations = activeLanguage === "ru" ? ruTranslations : {};
 
-  const byId = new Map(data.tickets.map((ticket) => [ticket.id, ticket]));
+  let byId = new Map(data.tickets.map((ticket) => [ticket.id, ticket]));
+
+  function copy() {
+    return copyByLanguage[activeLanguage] || copyByLanguage.ru;
+  }
+
+  function setLanguageDataset(language) {
+    activeLanguage = datasets[language] ? language : "ru";
+    data = datasets[activeLanguage];
+    translations = activeLanguage === "ru" ? ruTranslations : {};
+    byId = new Map(data.tickets.map((ticket) => [ticket.id, ticket]));
+  }
 
   function readState() {
+    const previousLanguage = activeLanguage;
     const state = new URLSearchParams(location.hash.slice(1));
+    const requestedLanguage = state.get("lang");
+    if (requestedLanguage && datasets[requestedLanguage]) {
+      setLanguageDataset(requestedLanguage);
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, activeLanguage);
+    }
     activeTopic = state.get("topic") || "all";
     activePage = state.get("page") || "1";
+    return previousLanguage !== activeLanguage;
   }
 
   function appPath() {
@@ -32,6 +98,9 @@
 
   function stateHref(topic = activeTopic, page = activePage) {
     const params = new URLSearchParams();
+    if (activeLanguage !== "ru") {
+      params.set("lang", activeLanguage);
+    }
     if (topic !== "all") {
       params.set("topic", topic);
     }
@@ -60,6 +129,46 @@
     if (scrollToTop) {
       scrollPageTop();
     }
+  }
+
+  function updateLanguageSwitch() {
+    document.documentElement.lang = activeLanguage;
+    document.body.dataset.language = activeLanguage;
+    document.title = activeLanguage === "ka" ? "ქართული თეორია" : "Russian Theory";
+    if (topicsTitleEl) {
+      topicsTitleEl.textContent = copy().chooseTopic;
+    }
+
+    languageSwitch?.querySelectorAll("[data-language]").forEach((button) => {
+      const isActive = button.dataset.language === activeLanguage;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
+
+    if (darkModeToggle) {
+      darkModeToggle.title = copy().darkMode;
+      darkModeToggle.setAttribute("aria-label", copy().darkMode);
+    }
+
+    const scrollTopButton = document.querySelector(".scroll-top-button");
+    if (scrollTopButton) {
+      scrollTopButton.title = copy().top;
+      scrollTopButton.setAttribute("aria-label", copy().top);
+    }
+  }
+
+  function setLanguage(language) {
+    if (!datasets[language] || language === activeLanguage) {
+      return;
+    }
+
+    setLanguageDataset(language);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, activeLanguage);
+    updateLanguageSwitch();
+    history.replaceState(null, "", stateHref());
+    renderTopics();
+    normalizeState();
+    render();
   }
 
   function usableText(value) {
@@ -120,11 +229,11 @@
     const descButton = ticketEl.querySelector(".desc-button");
     const descTitle = ticketEl.querySelector(".desc-title");
     if (descTitle?.firstChild) {
-      descTitle.firstChild.textContent = "Пояснение";
+      descTitle.firstChild.textContent = copy().explanation;
     }
 
     if (descButton) {
-      descButton.setAttribute("title", "Пояснение");
+      descButton.setAttribute("title", copy().explanation);
       descButton.addEventListener("click", () => {
         ticketEl.classList.toggle("desc-opened");
       });
@@ -195,7 +304,7 @@
 
   function renderTopics() {
     topicsEl.innerHTML = [
-      `<li><a href="${stateHref("all", "1")}" data-topic="all"><span class="id"></span>Все</a></li>`,
+      `<li><a href="${stateHref("all", "1")}" data-topic="all"><span class="id"></span>${copy().all}</a></li>`,
       ...data.topics.map((topic) => `<li><a href="${stateHref(topic.id, "1")}" data-topic="${topic.id}"><span class="id">${topic.id}.</span>${topic.title}</a></li>`)
     ].join("");
 
@@ -223,25 +332,25 @@
     const pageLinks = pages.map((page) => {
       const href = stateHref(activeTopic, page);
       const isActive = page === activePage;
-      return `<a href="${href}" data-page-select="${page}" class="page-select-item${isActive ? " active" : ""}" title="Перейти на страницу ${page}">страница ${page}</a>`;
+      return `<a href="${href}" data-page-select="${page}" class="page-select-item${isActive ? " active" : ""}" title="${copy().gotoButton}: ${copy().page} ${page}">${copy().page} ${page}</a>`;
     }).join("");
 
     return `<div class="pull-left paginator">
-      <a class="btn btn-default page-nav page-prev${previous ? "" : " disabled"}" href="${previous ? stateHref(activeTopic, previous) : stateHref()}" data-page="${previous || activePage}" aria-disabled="${previous ? "false" : "true"}">‹ Предыдущая</a>
+      <a class="btn btn-default page-nav page-prev${previous ? "" : " disabled"}" href="${previous ? stateHref(activeTopic, previous) : stateHref()}" data-page="${previous || activePage}" aria-disabled="${previous ? "false" : "true"}">‹ ${copy().previous}</a>
       <div class="page-select-dropdown">
-        <button type="button" class="btn btn-default page-select-toggle" title="Перейти на страницу">страница ${activePage}</button>
+        <button type="button" class="btn btn-default page-select-toggle" title="${copy().gotoButton}">${copy().page} ${activePage}</button>
         <div class="page-select-menu">
           ${pageLinks}
         </div>
       </div>
-      <a class="btn btn-default page-nav page-next${next ? "" : " disabled"}" href="${next ? stateHref(activeTopic, next) : stateHref()}" data-page="${next || activePage}" aria-disabled="${next ? "false" : "true"}">Следующая ›</a>
+      <a class="btn btn-default page-nav page-next${next ? "" : " disabled"}" href="${next ? stateHref(activeTopic, next) : stateHref()}" data-page="${next || activePage}" aria-disabled="${next ? "false" : "true"}">${copy().next} ›</a>
     </div>
     <form class="pull-right goto-ticket">
-      <div class="input-group" title="Введите номер билета">
+      <div class="input-group" title="${copy().gotoTitle}">
         <span class="input-group-addon">#</span>
-        <input type="number" pattern="\\d*" name="ticket" class="form-control number-input" placeholder="номер билета">
+        <input type="number" pattern="\\d*" name="ticket" class="form-control number-input" placeholder="${copy().gotoPlaceholder}">
         <span class="input-group-btn">
-          <button class="btn btn-default" type="submit">Перейти</button>
+          <button class="btn btn-default" type="submit">${copy().gotoButton}</button>
         </span>
       </div>
     </form>`;
@@ -345,18 +454,18 @@
 
   function renderTitle(count) {
     titleEl.textContent = activeTopic === "all"
-      ? "AM категория "
-      : `AM категория: ${data.topics.find((topic) => topic.id === activeTopic)?.title || ""} `;
+      ? `${copy().category} `
+      : `${copy().category}: ${data.topics.find((topic) => topic.id === activeTopic)?.title || ""} `;
 
     const total = topicTickets(activeTopic).length;
     const pages = currentPages();
     const light = document.createElement("span");
     light.className = "light";
     light.textContent = activeTopic === "all"
-      ? `Всего ${data.tickets.length} билетов, страница ${activePage}`
+      ? `${copy().total} ${data.tickets.length} ${copy().ticketPlural}, ${copy().page} ${activePage}`
       : pages.length > 1
-        ? `Всего ${total} билетов, страница ${activePage}`
-        : `Всего ${count} билетов`;
+        ? `${copy().total} ${total} ${copy().ticketPlural}, ${copy().page} ${activePage}`
+        : `${copy().total} ${count} ${copy().ticketPlural}`;
     titleEl.append(light);
   }
 
@@ -379,8 +488,8 @@
     const button = document.createElement("button");
     button.className = "scroll-top-button";
     button.type = "button";
-    button.title = "Наверх";
-    button.setAttribute("aria-label", "Наверх");
+    button.title = copy().top;
+    button.setAttribute("aria-label", copy().top);
     button.innerHTML = "↑";
     document.body.append(button);
 
@@ -406,7 +515,7 @@
     renderPagination();
     ticketsEl.innerHTML = filtered.length
       ? filtered.map((ticket) => `<div class="item" id="ticket-${ticket.id}">${ticket.html}</div>`).join("")
-      : '<div class="empty">Ничего не найдено</div>';
+      : `<div class="empty">${copy().empty}</div>`;
 
     ticketsEl.querySelectorAll(".ticket-container").forEach((ticketEl) => {
       prepareTicketControls(ticketEl);
@@ -415,9 +524,16 @@
     });
   }
 
-  renderTopics();
+  languageSwitch?.querySelectorAll("[data-language]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setLanguage(button.dataset.language);
+    });
+  });
+
   readState();
   normalizeUrlPath();
+  updateLanguageSwitch();
+  renderTopics();
   setupScrollTopButton();
   
   // Initialize dark mode
@@ -437,7 +553,11 @@
   
   render();
   window.addEventListener("hashchange", () => {
-    readState();
+    const languageChanged = readState();
+    updateLanguageSwitch();
+    if (languageChanged) {
+      renderTopics();
+    }
     render();
     scrollPageTop();
   });

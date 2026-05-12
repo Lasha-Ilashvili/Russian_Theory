@@ -28,9 +28,16 @@
         </nav>
 
         <div class="tickets-list with-topics">
-          <button id="dark-mode-toggle" class="dark-mode-toggle" title="Переключить темный режим" aria-label="Переключить темный режим">
-            <span class="toggle-icon">🌙</span>
-          </button>
+          <div class="viewer-toolbar">
+            <div id="language-switch" class="language-switch" role="group" aria-label="Language">
+              <button type="button" class="language-option" data-language="ru">RU</button>
+              <button type="button" class="language-option" data-language="ka">KA</button>
+            </div>
+
+            <button id="dark-mode-toggle" class="dark-mode-toggle" title="Переключить темный режим" aria-label="Переключить темный режим">
+              <span class="toggle-icon">🌙</span>
+            </button>
+          </div>
 
           <div class="text-content">
             <h1 id="page-title">AM категория <span class="light">Загрузка...</span></h1>
@@ -46,6 +53,7 @@
 
   <script src="./tickets-ru-translations.js"></script>
   <script src="./tickets-data.js"></script>
+  <script src="./tickets-data-ka.js"></script>
   <script src="./viewer.js"></script>
 </body>
 </html>
