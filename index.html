@@ -22,13 +22,13 @@
   <section class="content-wrapper" style="overflow: hidden;">
     <div class="container" style="position: relative;">
       <div class="page-tickets-list">
-        <nav class="tickets-topics">
-          <h2 class="tickets-cats-title">Выберите тему:</h2>
-          <ul id="topics" class="tickets-topics-list"></ul>
-        </nav>
+        <div class="viewer-toolbar">
+          <div id="view-switch" class="view-switch" role="tablist" aria-label="View">
+            <button type="button" class="view-option" data-view="tickets" role="tab">Билеты</button>
+            <button type="button" class="view-option" data-view="test" role="tab">Тестирование</button>
+          </div>
 
-        <div class="tickets-list with-topics">
-          <div class="viewer-toolbar">
+          <div class="viewer-utility-controls">
             <div id="language-switch" class="language-switch" role="group" aria-label="Language">
               <button type="button" class="language-option" data-language="ru">RU</button>
               <button type="button" class="language-option" data-language="ka">KA</button>
@@ -38,14 +38,77 @@
               <span class="toggle-icon">🌙</span>
             </button>
           </div>
+        </div>
 
-          <div class="text-content">
-            <h1 id="page-title">AM категория <span class="light">Загрузка...</span></h1>
+        <nav class="tickets-topics">
+          <h2 class="tickets-cats-title">Выберите тему:</h2>
+          <ul id="topics" class="tickets-topics-list"></ul>
+        </nav>
+
+        <div class="tickets-list with-topics">
+          <section id="exam-setup" class="exam-setup" hidden>
+            <div id="exam-setup-toggle" class="exam-setup-header">
+              <span class="exam-heading">
+                <span id="exam-kicker" class="exam-kicker">Экзамен</span>
+                <span id="exam-title" class="exam-title">Настройка экзамена</span>
+              </span>
+              <span id="exam-summary" class="exam-summary"></span>
+            </div>
+
+            <div id="exam-setup-body" class="exam-setup-body">
+              <div class="exam-meta-row">
+                <div id="exam-selected-summary" class="exam-selected-summary"></div>
+                <label class="exam-topic-toggle">
+                  <input id="exam-toggle-all" type="checkbox">
+                  <span id="exam-toggle-all-label">Выбрать все</span>
+                </label>
+              </div>
+
+              <div id="exam-topic-grid" class="exam-topic-grid"></div>
+
+              <div class="exam-count-panel">
+                <div class="exam-count-header">
+                  <span id="exam-count-title" class="exam-count-title">Количество вопросов</span>
+                  <span id="exam-count-result" class="exam-count-result"></span>
+                </div>
+
+                <div class="exam-count-options" role="radiogroup" aria-label="Количество вопросов">
+                  <div class="exam-count-option">
+                    <label class="exam-count-option-pick">
+                      <input type="radio" name="exam-count-mode" value="standard" checked>
+                      <span class="exam-count-option-body">
+                        <span id="exam-standard-label" class="exam-count-option-title">Обычный тест</span>
+                        <span id="exam-standard-detail" class="exam-count-option-detail">30 билетов</span>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div class="exam-count-option exam-count-option-extended">
+                    <label class="exam-count-option-pick">
+                      <input type="radio" name="exam-count-mode" value="extended">
+                      <span id="exam-extended-label" class="exam-count-option-title">Расширенный</span>
+                    </label>
+                    <span class="exam-custom-count">
+                      <input id="exam-count-input" class="exam-count-input" type="number" inputmode="numeric" min="31" value="150">
+                      <button id="exam-count-max" class="exam-max-button" type="button">MAX</button>
+                    </span>
+                  </div>
+                </div>
+
+                <div id="exam-count-note" class="exam-count-note"></div>
+              </div>
+            </div>
+          </section>
+
+          <div id="ticket-browser" class="ticket-browser">
+            <div class="text-content">
+              <h1 id="page-title">AM категория <span class="light">Загрузка...</span></h1>
+            </div>
+
+            <nav id="pagination-top" class="on-pagination clearfix"></nav>
+            <div id="tickets"></div>
+            <nav id="pagination-bottom" class="on-pagination clearfix"></nav>
           </div>
-
-          <nav id="pagination-top" class="on-pagination clearfix"></nav>
-          <div id="tickets"></div>
-          <nav id="pagination-bottom" class="on-pagination clearfix"></nav>
         </div>
       </div>
     </div>

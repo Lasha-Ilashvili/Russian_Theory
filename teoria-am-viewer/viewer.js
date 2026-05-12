@@ -6,13 +6,37 @@
   const ruTranslations = window.TEORIA_RU_TRANSLATIONS || {};
   const topicsEl = document.querySelector("#topics");
   const topicsTitleEl = document.querySelector(".tickets-cats-title");
+  const pageTicketsListEl = document.querySelector(".page-tickets-list");
+  const ticketBrowserEl = document.querySelector("#ticket-browser");
   const paginationTopEl = document.querySelector("#pagination-top");
   const paginationBottomEl = document.querySelector("#pagination-bottom");
   const ticketsEl = document.querySelector("#tickets");
   const titleEl = document.querySelector("#page-title");
   const darkModeToggle = document.querySelector("#dark-mode-toggle");
   const languageSwitch = document.querySelector("#language-switch");
+  const viewSwitch = document.querySelector("#view-switch");
+  const examSetupEl = document.querySelector("#exam-setup");
+  const examSetupToggle = document.querySelector("#exam-setup-toggle");
+  const examSetupBody = document.querySelector("#exam-setup-body");
+  const examKickerEl = document.querySelector("#exam-kicker");
+  const examTitleEl = document.querySelector("#exam-title");
+  const examSummaryEl = document.querySelector("#exam-summary");
+  const examSelectedSummaryEl = document.querySelector("#exam-selected-summary");
+  const examTopicGridEl = document.querySelector("#exam-topic-grid");
+  const examToggleAllInput = document.querySelector("#exam-toggle-all");
+  const examToggleAllLabel = document.querySelector("#exam-toggle-all-label");
+  const examCountTitleEl = document.querySelector("#exam-count-title");
+  const examCountResultEl = document.querySelector("#exam-count-result");
+  const examCountOptionsEl = document.querySelector(".exam-count-options");
+  const examStandardLabelEl = document.querySelector("#exam-standard-label");
+  const examStandardDetailEl = document.querySelector("#exam-standard-detail");
+  const examExtendedLabelEl = document.querySelector("#exam-extended-label");
+  const examCountInput = document.querySelector("#exam-count-input");
+  const examCountMaxButton = document.querySelector("#exam-count-max");
+  const examCountNoteEl = document.querySelector("#exam-count-note");
   const TOPIC_PAGE_SIZE = 20;
+  const STANDARD_EXAM_COUNT = 30;
+  const EXTENDED_EXAM_DEFAULT = 150;
   const LANGUAGE_STORAGE_KEY = "teoria-am-language";
   const copyByLanguage = {
     ru: {
@@ -21,6 +45,25 @@
       chooseTopic: "Выберите тему:",
       darkMode: "Переключить темный режим",
       empty: "Ничего не найдено",
+      examAvailable: "доступно",
+      examCollapsed: "Показать настройки",
+      examCountNote: "Расширенный режим принимает любое число от 31 до доступного максимума.",
+      examCountTitle: "Количество вопросов",
+      examExpanded: "Скрыть настройки",
+      examExtended: "Расширенный",
+      examKicker: "Экзамен",
+      examMax: "Все",
+      examNoTopics: "Выберите хотя бы одну тему",
+      examQuestions: "вопросов",
+      examResult: "В экзамене",
+      examSelectAll: "Выбрать все",
+      examSelected: "Выбрано",
+      examSomeSelected: "Часть тем",
+      examStandard: "Обычный тест",
+      examSummarySeparator: "из",
+      examTitle: "Темы билетов:",
+      examTopicCount: "тем",
+      examTopicTicketCount: "билетов",
       explanation: "Пояснение",
       gotoButton: "Перейти",
       gotoPlaceholder: "номер билета",
@@ -30,7 +73,10 @@
       previous: "Предыдущая",
       ticketPlural: "билетов",
       top: "Наверх",
-      total: "Всего"
+      total: "Всего",
+      viewLabel: "Раздел",
+      viewTest: "Тестирование",
+      viewTickets: "Билеты"
     },
     ka: {
       all: "ყველა",
@@ -38,6 +84,25 @@
       chooseTopic: "აირჩიეთ თემა:",
       darkMode: "მუქი რეჟიმის გადართვა",
       empty: "ვერაფერი მოიძებნა",
+      examAvailable: "ხელმისაწვდომია",
+      examCollapsed: "პარამეტრების ჩვენება",
+      examCountNote: "გაფართოებული რეჟიმი იღებს ნებისმიერ რიცხვს 31-დან არჩეული თემების მაქსიმუმამდე.",
+      examCountTitle: "კითხვების რაოდენობა",
+      examExpanded: "პარამეტრების დამალვა",
+      examExtended: "გაფართოებული",
+      examKicker: "გამოცდა",
+      examMax: "ყველა",
+      examNoTopics: "აირჩიეთ მინიმუმ ერთი თემა",
+      examQuestions: "კითხვა",
+      examResult: "გამოცდაში",
+      examSelectAll: "ყველას არჩევა",
+      examSelected: "არჩეულია",
+      examSomeSelected: "ნაწილი არჩეულია",
+      examStandard: "ჩვეულებრივი ტესტი",
+      examSummarySeparator: "/",
+      examTitle: "ბილეთების თემები:",
+      examTopicCount: "თემა",
+      examTopicTicketCount: "ბილეთი",
       explanation: "განმარტება",
       gotoButton: "გადასვლა",
       gotoPlaceholder: "ბილეთის ნომერი",
@@ -47,11 +112,19 @@
       previous: "წინა",
       ticketPlural: "ბილეთი",
       top: "ზემოთ",
-      total: "სულ"
+      total: "სულ",
+      viewLabel: "განყოფილება",
+      viewTest: "ტესტირება",
+      viewTickets: "ბილეთები"
     }
+  };
+  const viewLabels = {
+    tickets: "viewTickets",
+    test: "viewTest"
   };
   let activeTopic = "all";
   let activePage = "1";
+  let activeView = "tickets";
   let activeLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY) || "ru";
   if (!datasets[activeLanguage]) {
     activeLanguage = "ru";
@@ -60,6 +133,9 @@
   let translations = activeLanguage === "ru" ? ruTranslations : {};
 
   let byId = new Map(data.tickets.map((ticket) => [ticket.id, ticket]));
+  let selectedExamTopics = new Set(data.topics.map((topic) => topic.id));
+  let examCountMode = "standard";
+  let extendedExamCount = EXTENDED_EXAM_DEFAULT;
 
   function copy() {
     return copyByLanguage[activeLanguage] || copyByLanguage.ru;
@@ -74,15 +150,20 @@
 
   function readState() {
     const previousLanguage = activeLanguage;
+    const previousView = activeView;
     const state = new URLSearchParams(location.hash.slice(1));
     const requestedLanguage = state.get("lang");
     if (requestedLanguage && datasets[requestedLanguage]) {
       setLanguageDataset(requestedLanguage);
       localStorage.setItem(LANGUAGE_STORAGE_KEY, activeLanguage);
     }
+    activeView = state.get("view") === "test" ? "test" : "tickets";
     activeTopic = state.get("topic") || "all";
     activePage = state.get("page") || "1";
-    return previousLanguage !== activeLanguage;
+    return {
+      languageChanged: previousLanguage !== activeLanguage,
+      viewChanged: previousView !== activeView
+    };
   }
 
   function appPath() {
@@ -96,15 +177,18 @@
     }
   }
 
-  function stateHref(topic = activeTopic, page = activePage) {
+  function stateHref(topic = activeTopic, page = activePage, view = activeView) {
     const params = new URLSearchParams();
     if (activeLanguage !== "ru") {
       params.set("lang", activeLanguage);
     }
-    if (topic !== "all") {
+    if (view === "test") {
+      params.set("view", "test");
+    }
+    if (view !== "test" && topic !== "all") {
       params.set("topic", topic);
     }
-    if (page !== "1") {
+    if (view !== "test" && page !== "1") {
       params.set("page", page);
     }
 
@@ -121,6 +205,7 @@
   }
 
   function setState(topic, page = "1", scrollToTop = true) {
+    activeView = "tickets";
     activeTopic = topic;
     activePage = page;
     normalizeState();
@@ -129,6 +214,40 @@
     if (scrollToTop) {
       scrollPageTop();
     }
+  }
+
+  function setView(view, scrollToTop = true) {
+    activeView = view === "test" ? "test" : "tickets";
+    history.replaceState(null, "", stateHref());
+    render();
+    if (scrollToTop) {
+      scrollPageTop();
+    }
+  }
+
+  function updateViewSwitch() {
+    viewSwitch?.setAttribute("aria-label", copy().viewLabel);
+    viewSwitch?.querySelectorAll("[data-view]").forEach((button) => {
+      const view = button.dataset.view === "test" ? "test" : "tickets";
+      const isActive = view === activeView;
+      button.textContent = copy()[viewLabels[view]];
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-selected", String(isActive));
+      button.setAttribute("tabindex", isActive ? "0" : "-1");
+    });
+  }
+
+  function updateActiveView() {
+    const isTestView = activeView === "test";
+    pageTicketsListEl?.classList.toggle("view-test", isTestView);
+    pageTicketsListEl?.classList.toggle("view-tickets", !isTestView);
+    if (examSetupEl) {
+      examSetupEl.hidden = !isTestView;
+    }
+    if (ticketBrowserEl) {
+      ticketBrowserEl.hidden = isTestView;
+    }
+    updateViewSwitch();
   }
 
   function updateLanguageSwitch() {
@@ -165,10 +284,262 @@
     setLanguageDataset(language);
     localStorage.setItem(LANGUAGE_STORAGE_KEY, activeLanguage);
     updateLanguageSwitch();
+    updateViewSwitch();
     history.replaceState(null, "", stateHref());
     renderTopics();
+    renderExamSetup();
     normalizeState();
     render();
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "\"": "&quot;",
+      "'": "&#039;"
+    })[character]);
+  }
+
+  function syncExamTopicSelectionForData() {
+    const validTopicIds = new Set(data.topics.map((topic) => topic.id));
+    selectedExamTopics = new Set([...selectedExamTopics].filter((id) => validTopicIds.has(id)));
+  }
+
+  function selectedExamTickets() {
+    const ticketIds = new Set();
+    data.topics.forEach((topic) => {
+      if (selectedExamTopics.has(topic.id)) {
+        topic.tickets.forEach((id) => ticketIds.add(id));
+      }
+    });
+
+    return [...ticketIds].map((id) => byId.get(id)).filter(Boolean);
+  }
+
+  function normalizeExamCount(availableCount) {
+    if (availableCount <= STANDARD_EXAM_COUNT) {
+      examCountMode = "standard";
+      return;
+    }
+
+    if (examCountMode !== "extended") {
+      return;
+    }
+
+    if (!Number.isFinite(extendedExamCount) || extendedExamCount <= STANDARD_EXAM_COUNT) {
+      examCountMode = "standard";
+      return;
+    }
+
+    extendedExamCount = Math.min(Math.floor(extendedExamCount), availableCount);
+  }
+
+  function currentExamQuestionCount(availableCount) {
+    normalizeExamCount(availableCount);
+    return examCountMode === "extended"
+      ? extendedExamCount
+      : Math.min(STANDARD_EXAM_COUNT, availableCount);
+  }
+
+  function setExamCountMode(mode) {
+    const availableCount = selectedExamTickets().length;
+    if (mode === "extended" && availableCount > STANDARD_EXAM_COUNT) {
+      examCountMode = "extended";
+      extendedExamCount = Math.min(Math.max(extendedExamCount, EXTENDED_EXAM_DEFAULT), availableCount);
+    } else {
+      examCountMode = "standard";
+    }
+    renderExamSetup();
+  }
+
+  function renderExamSetup() {
+    if (!examSetupEl) {
+      return;
+    }
+
+    syncExamTopicSelectionForData();
+    const copyText = copy();
+    const selectedTopicsCount = selectedExamTopics.size;
+    const availableCount = selectedExamTickets().length;
+    const questionCount = currentExamQuestionCount(availableCount);
+    const canExtend = availableCount > STANDARD_EXAM_COUNT;
+    const allTopicsSelected = selectedTopicsCount === data.topics.length;
+    const noTopicsSelected = selectedTopicsCount === 0;
+
+    if (examSetupBody) {
+      examSetupBody.hidden = false;
+    }
+    if (examSetupToggle) {
+      examSetupToggle.title = copyText.examExpanded;
+    }
+
+    if (examKickerEl) {
+      examKickerEl.textContent = copyText.examKicker;
+    }
+    if (examTitleEl) {
+      examTitleEl.textContent = copyText.examTitle;
+    }
+    if (examSummaryEl) {
+      examSummaryEl.textContent = noTopicsSelected
+        ? copyText.examNoTopics
+        : `${questionCount} ${copyText.examQuestions}, ${selectedTopicsCount} ${copyText.examSummarySeparator} ${data.topics.length} ${copyText.examTopicCount}`;
+    }
+    if (examSelectedSummaryEl) {
+      examSelectedSummaryEl.textContent = noTopicsSelected
+        ? copyText.examNoTopics
+        : `${copyText.examSelected}: ${selectedTopicsCount} ${copyText.examSummarySeparator} ${data.topics.length} ${copyText.examTopicCount}; ${availableCount} ${copyText.examAvailable}`;
+    }
+    if (examToggleAllInput) {
+      examToggleAllInput.checked = allTopicsSelected;
+      examToggleAllInput.indeterminate = !allTopicsSelected && !noTopicsSelected;
+      examToggleAllInput.setAttribute("aria-checked", examToggleAllInput.indeterminate ? "mixed" : String(allTopicsSelected));
+    }
+    if (examToggleAllLabel) {
+      examToggleAllLabel.textContent = allTopicsSelected
+        ? copyText.examSelected
+        : noTopicsSelected
+          ? copyText.examSelectAll
+          : copyText.examSomeSelected;
+    }
+    if (examCountTitleEl) {
+      examCountTitleEl.textContent = copyText.examCountTitle;
+    }
+    if (examCountOptionsEl) {
+      examCountOptionsEl.setAttribute("aria-label", copyText.examCountTitle);
+    }
+    if (examCountResultEl) {
+      examCountResultEl.textContent = `${copyText.examResult}: ${questionCount} ${copyText.examQuestions}`;
+    }
+    if (examStandardLabelEl) {
+      examStandardLabelEl.textContent = copyText.examStandard;
+    }
+    if (examStandardDetailEl) {
+      examStandardDetailEl.textContent = `${STANDARD_EXAM_COUNT} ${copyText.examTopicTicketCount}`;
+    }
+    if (examExtendedLabelEl) {
+      examExtendedLabelEl.textContent = copyText.examExtended;
+    }
+    if (examCountMaxButton) {
+      examCountMaxButton.textContent = copyText.examMax;
+      examCountMaxButton.disabled = !canExtend;
+    }
+    if (examCountInput) {
+      const inputValue = canExtend
+        ? Math.min(Math.max(extendedExamCount, STANDARD_EXAM_COUNT + 1), availableCount)
+        : availableCount;
+      examCountInput.value = String(inputValue);
+      examCountInput.max = String(Math.max(STANDARD_EXAM_COUNT + 1, availableCount));
+      examCountInput.disabled = !canExtend;
+    }
+    if (examCountNoteEl) {
+      examCountNoteEl.textContent = noTopicsSelected
+        ? copyText.examNoTopics
+        : `${copyText.examAvailable}: ${availableCount}. ${copyText.examCountNote}`;
+    }
+
+    document.querySelectorAll('input[name="exam-count-mode"]').forEach((radio) => {
+      radio.checked = radio.value === examCountMode;
+      radio.disabled = radio.value === "extended" && !canExtend;
+      radio.closest(".exam-count-option")?.classList.toggle("active", radio.checked);
+      radio.closest(".exam-count-option")?.classList.toggle("disabled", radio.disabled);
+    });
+
+    if (examTopicGridEl) {
+      examTopicGridEl.innerHTML = data.topics.map((topic) => {
+        const checked = selectedExamTopics.has(topic.id);
+        return `<label class="exam-topic-option${checked ? " active" : ""}">
+          <input type="checkbox" value="${escapeHtml(topic.id)}"${checked ? " checked" : ""}>
+          <span class="exam-topic-index">${escapeHtml(topic.id)}.</span>
+          <span class="exam-topic-name">${escapeHtml(topic.title)}</span>
+          <span class="exam-topic-count">${topic.tickets.length}</span>
+        </label>`;
+      }).join("");
+    }
+  }
+
+  function setupExamControls() {
+    examToggleAllInput?.addEventListener("change", () => {
+      const allTopicsSelected = selectedExamTopics.size === data.topics.length;
+      selectedExamTopics = allTopicsSelected
+        ? new Set()
+        : new Set(data.topics.map((topic) => topic.id));
+      renderExamSetup();
+    });
+
+    examTopicGridEl?.addEventListener("change", (event) => {
+      const checkbox = event.target.closest('input[type="checkbox"]');
+      if (!checkbox) {
+        return;
+      }
+
+      if (checkbox.checked) {
+        selectedExamTopics.add(checkbox.value);
+      } else {
+        selectedExamTopics.delete(checkbox.value);
+      }
+      renderExamSetup();
+    });
+
+    document.querySelectorAll('input[name="exam-count-mode"]').forEach((radio) => {
+      radio.addEventListener("change", () => {
+        setExamCountMode(radio.value);
+      });
+    });
+
+    examCountOptionsEl?.addEventListener("click", (event) => {
+      if (event.target.closest(".exam-count-input, .exam-max-button")) {
+        return;
+      }
+
+      const option = event.target.closest(".exam-count-option");
+      if (!option || !examCountOptionsEl.contains(option)) {
+        return;
+      }
+
+      const radio = option.querySelector('input[name="exam-count-mode"]');
+      if (!radio || radio.disabled) {
+        return;
+      }
+
+      setExamCountMode(radio.value);
+    });
+
+    examCountInput?.addEventListener("input", () => {
+      const value = Number(examCountInput.value);
+      const availableCount = selectedExamTickets().length;
+      if (!Number.isFinite(value) || value <= STANDARD_EXAM_COUNT || availableCount <= STANDARD_EXAM_COUNT) {
+        return;
+      }
+
+      examCountMode = "extended";
+      extendedExamCount = Math.min(Math.floor(value), availableCount);
+      renderExamSetup();
+    });
+
+    examCountInput?.addEventListener("change", () => {
+      const value = Number(examCountInput.value);
+      const availableCount = selectedExamTickets().length;
+      if (!Number.isFinite(value) || value <= STANDARD_EXAM_COUNT || availableCount <= STANDARD_EXAM_COUNT) {
+        examCountMode = "standard";
+      } else {
+        examCountMode = "extended";
+        extendedExamCount = Math.min(Math.floor(value), availableCount);
+      }
+      renderExamSetup();
+    });
+
+    examCountMaxButton?.addEventListener("click", () => {
+      const availableCount = selectedExamTickets().length;
+      if (availableCount <= STANDARD_EXAM_COUNT) {
+        examCountMode = "standard";
+      } else {
+        examCountMode = "extended";
+        extendedExamCount = availableCount;
+      }
+      renderExamSetup();
+    });
   }
 
   function usableText(value) {
@@ -304,8 +675,8 @@
 
   function renderTopics() {
     topicsEl.innerHTML = [
-      `<li><a href="${stateHref("all", "1")}" data-topic="all"><span class="id"></span>${copy().all}</a></li>`,
-      ...data.topics.map((topic) => `<li><a href="${stateHref(topic.id, "1")}" data-topic="${topic.id}"><span class="id">${topic.id}.</span>${topic.title}</a></li>`)
+      `<li><a href="${stateHref("all", "1", "tickets")}" data-topic="all"><span class="id"></span>${copy().all}</a></li>`,
+      ...data.topics.map((topic) => `<li><a href="${stateHref(topic.id, "1", "tickets")}" data-topic="${topic.id}"><span class="id">${topic.id}.</span>${topic.title}</a></li>`)
     ].join("");
 
     topicsEl.querySelectorAll("a[data-topic]").forEach((link) => {
@@ -504,13 +875,19 @@
 
   function render() {
     normalizeState();
-    const filtered = visibleTickets();
+    updateActiveView();
 
     topicsEl.querySelectorAll("a[data-topic]").forEach((link) => {
-      link.href = stateHref(link.dataset.topic, "1");
+      link.href = stateHref(link.dataset.topic, "1", "tickets");
       link.classList.toggle("active", link.dataset.topic === activeTopic);
     });
 
+    if (activeView === "test") {
+      renderExamSetup();
+      return;
+    }
+
+    const filtered = visibleTickets();
     renderTitle(filtered.length);
     renderPagination();
     ticketsEl.innerHTML = filtered.length
@@ -530,10 +907,19 @@
     });
   });
 
+  viewSwitch?.querySelectorAll("[data-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setView(button.dataset.view);
+    });
+  });
+
   readState();
   normalizeUrlPath();
   updateLanguageSwitch();
+  updateViewSwitch();
   renderTopics();
+  setupExamControls();
+  renderExamSetup();
   setupScrollTopButton();
   
   // Initialize dark mode
@@ -553,10 +939,12 @@
   
   render();
   window.addEventListener("hashchange", () => {
-    const languageChanged = readState();
+    const { languageChanged } = readState();
     updateLanguageSwitch();
+    updateViewSwitch();
     if (languageChanged) {
       renderTopics();
+      renderExamSetup();
     }
     render();
     scrollPageTop();
